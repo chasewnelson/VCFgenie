@@ -1,7 +1,7 @@
 <img src="https://github.com/chasewnelson/VCFgenie/blob/main/VCFgenie_logo.png?raw=true" title="VCFgenie logo by Mitch Lin" alt="VCFgenie logo by Mitch Lin" align="middle">
 
 # VCFgenie
-**VCFgenie** is a Python program for dynamically processing within-sample (pooled-sequencing) variants in a VCF file by implementing arbitrarily compplex filtering rules and controlling for a false-discovery rate.
+**VCFgenie** is a Python program for dynamically processing within-sample (pooled-sequencing) variants in a VCF file by implementing arbitrarily complex filtering rules and controlling for a user-provided false-discovery rate.
 
 To test the software with [example data](#examples), execute the program at the Unix command line or Mac Terminal as follows:
 
