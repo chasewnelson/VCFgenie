@@ -28,7 +28,7 @@ Find more [examples](#examples) below.
 
 ## <a name="description"></a>Description
 
-[**Variant Call Format (VCF)** files](#http://samtools.github.io/hts-specs/VCFv4.2.pdf) are currently the primary means of storing genetic polymorphism data. These data may summarize either **(1) individual-based sequencing data**, wherein one sequencing reaction corresponds to one individual (any ploidy); or **(2) pooled-sequencing data**, wherein one sequencing reaction corresponds to genetic material from multiple individuals from a population under study (any ploidy). Common uses of pooled-sequencing include analysis of somatic tissue samples containing populations of tumor cells; samples containing known quantities of genetic material from multiple indivudals; and within-host populations of pathogens such as viruses.
+[**Variant Call Format (VCF)** files](http://samtools.github.io/hts-specs/VCFv4.2.pdf) are currently the primary means of storing genetic polymorphism data. These data may summarize either **(1) individual-based sequencing data**, wherein one sequencing reaction corresponds to one individual (any ploidy); or **(2) pooled-sequencing data**, wherein one sequencing reaction corresponds to genetic material from multiple individuals from a population under study (any ploidy). Common uses of pooled-sequencing include analysis of somatic tissue samples containing populations of tumor cells; samples containing known quantities of genetic material from multiple indivudals; and within-host populations of pathogens such as viruses.
 
 VCF files are the result of single nucleotide polymorphism (SNP) calling, for which numerous tools exist, including Freebayes, Genome Analysis Tool Kit (GATK), Ion Proton Variant Caller (TVC), Intrahost Variant Analysis of Replicates (iVar), LowFreq, Samtools mpileup, and VarScan 2.
 
@@ -57,9 +57,9 @@ At present, VCFgenie explicitly e
 
 VCF file conventions differ widely. Thus, VCFgenie allows the user to specify which FORMAT data key should be used for:
 
-1. `allele count`: the number of reads matching to the ALT allele (DEFAULT: "AC")
-2. `allele frequency`: the frequency of the ALT allele (DEFAULT: "AF")
-3. `read depth (coverage)`: the number of mapping reads overlapping the site (DEFAULT: "DP")
+1. `allele count`: the number of reads matching to the ALT allele (**DEFAULT**: "AC")
+2. `allele frequency`: the frequency of the ALT allele (**DEFAULT**: "AF")
+3. `read depth (coverage)`: the number of mapping reads overlapping the site (**DEFAULT**: "DP")
 
 
 
