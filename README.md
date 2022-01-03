@@ -84,30 +84,43 @@ Thus, the method assumes a single nucleotide variant (SNV) model in which all th
 
 To implement the above method, the user must supply a **FDR cutoff** (`--FDR_cutoff`). For example, if one sample is being analyzed, one might wish to use an FDR cutoff of 0.05. If multiple samples (e.g., 100) are being analyzed, one might wish to specify that a maximum mean of 1 false variant across the entire analysis is acceptable.
 
+Note the advantage of using the FDR is that it precludes the need for a fixed arbitrary `AF` cutoff (although one may still be applied using `--min_MAF`).
+
 ## <a name="allele-filtering-rules"></a>Allele Filtering Rules
 
 Resolution of failing alleles requires careful consideration. VCFgenie always maintains the same `DP` (coverage) at a site before and after filtering. However, allele counts (`AC`) may be reassigned to different alleles, depending on which alleles pass the filtering criteria.
 
+Filtering rules are tested in the following order:
+
+1. `failZeroAC`: the number of reads corresponding to the tested allele (REF or ALT) is already 0 (i.e., `AF` is 0%)
+2. `failDP`: read depth (coverage) is insufficient at this site
+3. `failAC`: minor allele count (whether REF or ALT) is insufficient at this site
+4. `failMAF`: minor allele frequency (whether REF or ALT) fails `--min_MAF`
+5. `failINFO`: fails one of the user-provided `--INFO_rules`
+6. `failsample`: fails one of the user-provided `--sample_rules`
+7. `failFDR`: fails because it implies too high a false-discovery rate
+
+An allele also be given the flag `fixedALT`, `fixedREF`, or `pass` if apropriate.
+
 **Usually**, most sites are biallelic (one REF and one ALT allele) and the REF is the major allele. In such cases, if the ALT allele fails, the ALT reads will be assumed to represent error, and will simply be re-assigned to the REF allele (i.e., the REF allele will be fixed at 100%). Complementarily, at a biallelic site where the ALT is the major allele and the REF fails, the REF reads will be reassigned to the ALT (i.e., the ALT allele will be fixed at 100%).
 
-In rare instances, other unusual cases may occur, especially with pooled-sequencing data involving poorly-supported REF alleles and multiallelic sites. Some rules, peculiar instances, and methods of resolution are listed below:
+**However, in rare instances,** other unusual cases may occur, especially with pooled-sequencing data involving poorly-supported REF alleles and multiallelic sites. Some rules, peculiar instances, and methods of resolution are listed below:
 
-1. Rules are tested in the order described in [Options](#options).
-2. After all alleles are evaluated, reads from failing alleles are distributed to the remaining (passing) alleles in proportion to their frequencies among the reads attributed to passing alleles.
-3. If `Number=A` for a given key supplied in `--INFO_rules` or `--sample_rules`, then there is one value per ALT allele, and the rule is evaluated separately for each ALT (REF cannot be evaluated).
-4. If `Number=1` for a given key supplied in `--INFO_rules` or `--sample_rules`, then there is one value for the site, and the rule is applied equally to all alleles (REF and ALT).
-5. If a site fails (e.g., due to insufficient coverage), or if all alleles fail at that site (including REF), then all reads are given to the **major** (most common) allele, whether REF or ALT.
-6. If an allele fails at a site, then the **first** rule it failed will be reported in the `FILTER` column.
-7. For a site with one or more failing alleles, **one flag per allele**, including reference, will be reported in the `FILTER` column (semicolon-separated). This will including `PASS` for any passing alleles. Distinct values will be reported only once, in alphabetical order (order is not meaningful). Thus a site that has one ALT that fails will have two flags: one for the REF, one for the ALT.
-8. VCFgenie will add the following data to the `INFO` column:
+1. After all alleles are evaluated, reads from failing alleles are distributed to the remaining (passing) alleles in proportion to their frequencies among the reads attributed to passing alleles.
+2. If `Number=A` for a given key supplied in `--INFO_rules` or `--sample_rules`, then there is one value per ALT allele, and the rule is evaluated separately for each ALT (REF cannot be evaluated).
+3. If `Number=1` for a given key supplied in `--INFO_rules` or `--sample_rules`, then there is one value for the site, and the rule is applied equally to all alleles (REF and ALT).
+4. If a site fails (e.g., due to insufficient coverage), or if all alleles fail at that site (including REF), then all reads are given to the **major** (most common) allele, whether REF or ALT.
+5. If an allele fails at a site, then the **first** rule it failed will be reported in the `FILTER` column.
+6. For a site with one or more failing alleles, **one flag per allele**, including reference, will be reported in the `FILTER` column (semicolon-separated). This will including `PASS` for any passing alleles. Distinct values will be reported only once, in alphabetical order (order is not meaningful). Thus a site that has one ALT that fails will have two flags: one for the REF, one for the ALT.
+7. VCFgenie will add the following data to the `INFO` column:
 
 	- `DECISION`=(`fixedREF`|`fixedALT`|`fail`|`failZeroAC`|`failDP`|`failAC`|`failMAF`|`failINFO`|`failsample`|`failFDR`|`pass`)
 	- `STATUS`=(`PASS`|`FAIL`)
 	- `MULTIALLELIC` (Flag)
 	- `FAIL_REF` (Flag)
 
-9. Any flags other than `PASS` that were present in the `FILTER` column of the VCF input will be kept.
-10. `NOCALL`: this flag is added to any site at which a MAJOR ALLELE fails. At the same time, any `PASS` flags from previous passing (minor) alleles are removed. In other words, `PASS` is converted to `NOCALL` at sites where a major allele fails. It is possible for a minor allele to pass while a major allele fails, e.g., when a `--sample_rule` specifies a criterion using a key with `Number=A` (only ALT alleles have a value) and an ALT allele is the major allele. In such cases, **no** `AF` **corrections are performed**; `AC` and `AF` are left as they were prior to evaluation.
+8. Any flags other than `PASS` that were present in the `FILTER` column of the VCF input will be kept.
+9. `NOCALL`: this flag is added to any site at which a MAJOR ALLELE fails. At the same time, any `PASS` flags from previous passing (minor) alleles are removed. In other words, `PASS` is converted to `NOCALL` at sites where a major allele fails. It is possible for a minor allele to pass while a major allele fails, e.g., when a `--sample_rule` specifies a criterion using a key with `Number=A` (only ALT alleles have a value) and an ALT allele is the major allele. In such cases, **no** `AF` **corrections are performed**; `AC` and `AF` are left as they were prior to evaluation.
 
 ## <a name="options"></a>Options
 Call **VCFgenie** using the following options: 
@@ -137,3 +150,40 @@ Call **VCFgenie** using the following options:
 	* Example: `--sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5"`
 
 *To be continued...*
+
+## <a name="examples"></a>EXAMPLES
+
+### EXAMPLE 1: A SIMPLE RUN
+
+## <a name="output"></a>Output
+
+**VCFgenie** outputs the following data:
+
+### <a name="standard-output"></a>Standard Output
+
+At the command line (Terminal), VCFgenie will report a log of the input parameters, the file(s) to be processed, and various summary statistics related to passing and failing alleles.
+
+### <a name="filtered-VCF-files"></a>Filtered VCF Output File(s)
+
+VCFgenie will produce one `*_filtered.vcf` file for each `*.vcf` file in the working directory, to be placed in `--out_dir` (DEFAULT: `VCFgenie_output`)
+
+
+## <a name="troubleshooting"></a>Troubleshooting
+
+If you have questions about **VCFgenie**, please click on the <a target="_blank" href="https://github.com/chasewnelson/VCFgenie/issues">Issues</a> tab at the top of this page and begin a new thread, so that others might benefit from the discussion. Common questions will be addressed in this section.
+
+## <a name="acknowledgments"></a>Acknowledgments
+**VCFgenie** was written and is maintained with support from a Research Fellowship from the National Cancer Institute (NCI), National Institutes of Health (NIH) to C.W.N. (2021-present), Lisa Mirabello group. The logo image was designed by Mitch Lin (2019); copyright-free DNA helix obtained from Pixabay. Thanks to Laurie Burdette, Lisa Mirabello, Sambit Mishra, Maisa Pinheiro, and Meredith Yeager for discussion.
+
+## <a name="citation"></a>Citation
+
+When using this software, please refer to and cite this page:
+
+>https://github.com/chasewnelson/VCFgenie
+
+## <a name="contact"></a>Contact
+If you have questions about **VCFgenie**, please click on the <a target="_blank" href="https://github.com/chasewnelson/VCFgenie/issues">Issues</a> tab at the top of this page and begin a new thread, so that others might benefit from the discussion.
+
+Other correspondence should be addressed to Chase W. Nelson: 
+
+* chase.nelson <**AT**> nih <**DOT**> gov
