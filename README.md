@@ -161,13 +161,13 @@ If your analysis will use the VCF file's default data keys for allele count (`AC
 
 If your analysis will **not** use the VCF file's default data keys for allele count (`AC`), allele frequency (`AF`), and read depth (`DP`), you must provide both the required options and the keys to use for obtaining read depth (`--DP_key`), allele count (`--AC_key`), and allele frequency (`--AF`):
 
-	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example.vcf > VCFgenie.out
+	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=0.05 --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example.vcf > VCFgenie.out
 
 ### EXAMPLE 3: Miniumum AC, MAF, and DP Values
 
 If, in addition to the specified FDR cutoff (`--FDR`), you wish to specify a minimum acceptable allele count (`--min_AC`), minimum acceptable minor allele frequency (`--min_MAF`), or minimum acceptable read depth (`--min_DP`), they may be specified as follows:
 
-	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 --AC_key=FAO --AF_key=AF --DP_key=FDP --min_AC=10 --min_MAF=0.01 --min_DP=100 --VCF_files example.vcf > VCFgenie.out
+	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=0.05 --AC_key=FAO --AF_key=AF --DP_key=FDP --min_AC=10 --min_MAF=0.01 --min_DP=100 --VCF_files example.vcf > VCFgenie.out
 
 ### EXAMPLE 4: To Be Continued...
 
