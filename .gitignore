@@ -5,3 +5,5 @@ VCFgenie_logo1.png
 filter_VCF_20211217.py
 filter_VCF_BUCKET.py
 filter_VCF_bucket_preVCFLibrary.py
+EXAMPLE_INPUT/VCFgenie.out
+EXAMPLE_INPUT/VCFgenie_output/example1_filtered.vcf

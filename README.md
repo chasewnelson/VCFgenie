@@ -7,9 +7,7 @@ To test the software with [example data](#examples), execute the program at the 
 
 ### FORMAT:
 
-	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 \
-		--AF_key=AF --AC_key=FAO --DP_key=FDP --min_DP=100 --min_AC=10 --min_MAF=0.01 \
-		--VCF_files example.vcf > VCFgenie.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=0.05  --VCF_files example.vcf > example.out
 
 Find more [examples](#examples) below. 
 
@@ -153,7 +151,27 @@ Call **VCFgenie** using the following options:
 
 ## <a name="examples"></a>EXAMPLES
 
-### EXAMPLE 1: A SIMPLE RUN
+### EXAMPLE 1: A Simple Run
+
+If your analysis will use the VCF file's default data keys for allele count (`AC`), allele frequency (`AF`), and read depth (`DP`), you need only provide the required options:
+
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=0.05  --VCF_files example1.vcf > example1.out
+
+### EXAMPLE 2: Custom AC, AF, and DP Keys
+
+If your analysis will **not** use the VCF file's default data keys for allele count (`AC`), allele frequency (`AF`), and read depth (`DP`), you must provide both the required options and the keys to use for obtaining read depth (`--DP_key`), allele count (`--AC_key`), and allele frequency (`--AF`):
+
+	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example.vcf > VCFgenie.out
+
+### EXAMPLE 3: Miniumum AC, MAF, and DP Values
+
+If, in addition to the specified FDR cutoff (`--FDR`), you wish to specify a minimum acceptable allele count (`--min_AC`), minimum acceptable minor allele frequency (`--min_MAF`), or minimum acceptable read depth (`--min_DP`), they may be specified as follows:
+
+	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 --AC_key=FAO --AF_key=AF --DP_key=FDP --min_AC=10 --min_MAF=0.01 --min_DP=100 --VCF_files example.vcf > VCFgenie.out
+
+### EXAMPLE 4: To Be Continued...
+
+*To be continued...*
 
 ## <a name="output"></a>Output
 
