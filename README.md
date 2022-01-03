@@ -7,9 +7,9 @@ To test the software with [example data](#examples), execute the program at the 
 
 ### FORMAT:
 
-	VCFgenie.pl --genome_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 \
+	VCFgenie.pl --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR=1 \
 		--AF_key=AF --AC_key=FAO --DP_key=FDP --min_DP=100 --min_AC=10 --min_MAF=0.01 \
-		--VCF_files example.vcf > filter_VCF.out
+		--VCF_files example.vcf > VCFgenie.out
 
 Find more [examples](#examples) below. 
 
