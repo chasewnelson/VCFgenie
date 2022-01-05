@@ -202,7 +202,15 @@ To use all currently available options, run as follows:
 
 ### <a name="standard-output"></a>Output 1: Standard Output
 
-At the command line (Terminal), VCFgenie will report a log of the input parameters, the file(s) to be processed, and various summary statistics related to `AC`, `AF`, and `DP` of passing and failing alleles (original values, before correction). Results will be reported separately for the following cateogories:
+At the command line (Terminal), VCFgenie will report:
+
+1. a log of the input parameters
+2. the file(s) to be processed
+3. data regarding each failing allele and MULTIALLELIC site
+4. FILE summary statistics
+5. TOTAL summary statistics related to `AC`, `AF`, and `DP` of passing and failing alleles (original values, before correction)
+
+Results will be reported separately for the following categories:
 
 * `ALLELES`: all alleles
 * `REF`: REF alleles
