@@ -43,11 +43,11 @@ Details: The script applies a dynamic (site-by-site) filter using the binomial
     where:
         n = total reads
         p = error rate / 3
-        x = number of reads of minor allele
+        x = number of reads of allele
         FDR cutoff = (1 - binom.cdf(x - 1, n, p)) * seq_len * num_samples
 
     Note that x - 1 is used because we subtract the cumulative probability
-        BEFORE the given number of minor variants.
+        BEFORE the given number of variants.
 
     The equivalent function in base R is: pbinom(x, n, p)
 
@@ -59,15 +59,16 @@ Details: The script applies a dynamic (site-by-site) filter using the binomial
         -DP = depth (coverage)
         -fixedREF = site fixed for the REF allele (100% reference)
         -fixedALT = site fixed for a particular ALT allele (100% non-reference)
-        -fail = minor allele variant fails criteria (all-inclusive)
+        -fail = allele fails criteria (all-inclusive)
             -failDP = read depth (coverage) fails min_DP
-            -failZeroAC = minor allele variant fails when 0 reads support it
-            -failAC = minor allele count (whether REF or ALT) fails min_AC
-            -failMAF = minor allele frequency (whether REF or ALT) fails min_MAF
+            -failZeroAC = allele fails when 0 reads support it
+            -failAC = allele count (whether REF or ALT) fails min_AC
+            -failMinAF = allele frequency (whether REF or ALT) fails min_AF
+            -failMaxAF = allele frequency (whether REF or ALT) fails max_AF
             -failINFO: one or more of the user-provided INFO_rules fails
             -failsample: one or more of the user-provided sample_rules fails
-            -failFDR = minor allele variant fails FDR_cutoff
-        -pass = minor allele variant exists and passes the criteria
+            -failFDR = allele fails FDR_cutoff
+        -pass = allele passes all criteria
 
 
 Returns:
@@ -102,9 +103,10 @@ class Args(NamedTuple):
     AF_key: str  # OPTIONAL
     AF_key_new: str  # OPTIONAL
     DP_key: str  # OPTIONAL
-    min_DP: float  # OPTIONAL
     min_AC: float  # OPTIONAL
-    min_MAF: float  # OPTIONAL
+    min_AF: float  # OPTIONAL
+    max_AF: float  # OPTIONAL
+    min_DP: float  # OPTIONAL
     INFO_rules: str  # OPTIONAL
     sample_rules: str  # OPTIONAL
 
@@ -185,39 +187,39 @@ def get_args() -> Args:
                         type=str,
                         default='VCFgenie_output')
 
-    parser.add_argument('-a',
+    parser.add_argument('-c',
                         '--AC_key',
                         metavar='str',  # TODO: or expression?
-                        help='FORMAT key to use for obtaining variant allele count [OPTIONAL]',
+                        help='FORMAT key to use for obtaining ALT allele count [OPTIONAL]',
                         required=False,
                         type=str,
                         default='AC')  # 'FAO' for Ion Torrent
 
-    parser.add_argument('-A',
+    parser.add_argument('-C',
                         '--AC_key_new',
                         metavar='str',
-                        help='FORMAT key to use for new (filtered) variant allele count [OPTIONAL]',
+                        help='FORMAT key to use for new (filtered) ALT allele count [OPTIONAL]',
                         required=False,
                         type=str,
-                        default='FAC')  # 'FAO' for Ion Torrent
+                        default='NAC')
 
-    parser.add_argument('-v',
+    parser.add_argument('-a',
                         '--AF_key',
                         metavar='str',  # TODO: or expression?
-                        help='FORMAT key to use for variant allele frequency [OPTIONAL]',
+                        help='FORMAT key to use for ALT allele frequency [OPTIONAL]',
                         required=False,
                         type=str,
                         default='AF')  # 'AF' remains for Ion Torrent
 
-    parser.add_argument('-V',
+    parser.add_argument('-A',
                         '--AF_key_new',
                         metavar='str',
-                        help='FORMAT key to use for new (filtered) variant allele frequency [OPTIONAL]',
+                        help='FORMAT key to use for new (filtered) ALT allele frequency [OPTIONAL]',
                         required=False,
                         type=str,
-                        default='FAF')  # 'AF' remains for Ion Torrent
+                        default='NAF')
 
-    parser.add_argument('-D',
+    parser.add_argument('-d',
                         '--DP_key',  # TODO: or expression
                         metavar='str',
                         help='FORMAT key to use for read depth (coverage) [OPTIONAL]',
@@ -225,29 +227,37 @@ def get_args() -> Args:
                         type=str,
                         default='DP')  # 'FDP' for Ion Torrent
 
-    parser.add_argument('-d',
-                        '--min_DP',
-                        metavar='int',
-                        help='read depth (coverage) cutoff (min allowed) [OPTIONAL]',
-                        required=False,
-                        type=float,  # OK to be a float
-                        default=1)
-
-    parser.add_argument('-c',
+    parser.add_argument('-t',
                         '--min_AC',
                         metavar='int',
-                        help='allele count cutoff (min reads allowed to support minor allele) [OPTIONAL]',
+                        help='allele count cutoff (min reads allowed to support allele, REF or ALT) [OPTIONAL]',
                         required=False,
                         type=float,  # OK to be a float
                         default=0)
 
-    parser.add_argument('-m',
-                        '--min_MAF',
+    parser.add_argument('-q',
+                        '--min_AF',
                         metavar='float',
-                        help='minor allele frequency cutoff (min allowed) [OPTIONAL]',
+                        help='minor allele frequency cutoff (min allowed, REF or ALT) [OPTIONAL]',
                         required=False,
                         type=float,
                         default=0)
+
+    parser.add_argument('-Q',
+                        '--max_AF',
+                        metavar='float',
+                        help='major allele frequency cutoff (max allowed, REF or ALT) [OPTIONAL]',
+                        required=False,
+                        type=float,
+                        default=1)
+
+    parser.add_argument('-D',
+                        '--min_DP',
+                        metavar='int',
+                        help='read depth (coverage) cutoff (min allowed, REF or ALT) [OPTIONAL]',
+                        required=False,
+                        type=float,  # OK to be a float
+                        default=1)
 
     parser.add_argument('-I',
                         '--INFO_rules',
@@ -289,38 +299,43 @@ def get_args() -> Args:
     #         parser.error(f'input VCF file {this_VCF_file} is not recognizable to vcf.Reader()\n')
 
     if args.error_per_site < 0 or args.error_per_site >= 1 or not args.error_per_site:
-        parser.error(f'error_per_site "{args.error_per_site}" must be >= 0 and < 1')
+        parser.error(f'\n### ERROR: error_per_site "{args.error_per_site}" must be >= 0 and < 1')
 
     if args.seq_len <= 0 or not args.seq_len:
-        parser.error(f'seq_len "{args.seq_len}" must be > 0 nucleotides')
+        parser.error(f'\n### ERROR: seq_len "{args.seq_len}" must be > 0 nucleotides')
 
     if args.num_samples <= 0 or not args.num_samples:
-        parser.error(f'num_samples "{args.num_samples}" must be > 0')
+        parser.error(f'\n### ERROR: num_samples "{args.num_samples}" must be > 0')
 
     if args.FDR_cutoff <= 0 or not args.FDR_cutoff:
-        parser.error(f'FDR_cutoff "{args.FDR_cutoff}" must be > 0')
+        parser.error(f'\n### ERROR: FDR_cutoff "{args.FDR_cutoff}" must be > 0')
 
     # OPTIONAL  # TODO AF_key and DP_key can only be validated later while examining VCF files
     if os.path.isdir(args.out_dir):
         # sys.exit(f'\n### ERROR: out_dir "{args.out_dir}" already exists')
-        parser.error(f'out_dir "{args.out_dir}" already exists')
+        parser.error(f'\n### ERROR: out_dir "{args.out_dir}" already exists')
     else:
         os.makedirs(args.out_dir)
 
     if args.AC_key == args.AC_key_new:
-        parser.error(f'AC_key="{args.AC_key}" may not match AC_key_new="{args.AC_key_new}"')
+        # parser.error(f'AC_key="{args.AC_key}" may not match AC_key_new="{args.AC_key_new}"')
+        print(f'\n### WARNING: AC_key="{args.AC_key_new}" already exists and will be OVERWRITTEN')
 
     if args.AF_key == args.AF_key_new:
-        parser.error(f'AF_key="{args.AF_key}" may not match AF_key_new="{args.AF_key_new}"')
-
-    if args.min_DP < 1:
-        parser.error(f'min_DP "{args.min_DP}" must be >= 1')
+        # parser.error(f'AF_key="{args.AF_key}" may not match AF_key_new="{args.AF_key_new}"')
+        print(f'\n### WARNING: AF_key="{args.AF_key_new}" already exists and will be OVERWRITTEN')
 
     if args.min_AC < 0:
-        parser.error(f'min_AC "{args.min_AC}" must be >= 0')
+        parser.error(f'\n### ERROR: min_AC "{args.min_AC}" must be >= 0')
 
-    if args.min_MAF < 0:
-        parser.error(f'min_MAF "{args.min_MAF}" must be >= 0')
+    if args.min_AF < 0:
+        parser.error(f'\n### ERROR: min_AF "{args.min_AF}" must be >= 0')
+
+    if args.max_AF > 1:
+        parser.error(f'\n### ERROR: min_AF "{args.max_AF}" must be <= 1')
+
+    if args.min_DP < 1:
+        parser.error(f'\n### ERROR: min_DP "{args.min_DP}" must be >= 1')
 
     # INFO_rules and sample_rules will be validated first thing in main() when they're regexed
 
@@ -335,9 +350,10 @@ def get_args() -> Args:
                 AF_key=args.AF_key,
                 AF_key_new=args.AF_key_new,
                 DP_key=args.DP_key,
-                min_DP=args.min_DP,
                 min_AC=args.min_AC,
-                min_MAF=args.min_MAF,
+                min_AF=args.min_AF,
+                max_AF=args.max_AF,
+                min_DP=args.min_DP,
                 INFO_rules=args.INFO_rules,
                 sample_rules=args.sample_rules)
 
@@ -359,9 +375,10 @@ def main() -> None:
     AF_key = args.AF_key  # optional
     AF_key_new = args.AF_key_new  # optional
     DP_key = args.DP_key  # optional
-    min_DP = args.min_DP  # optional
     min_AC = args.min_AC  # optional
-    min_MAF = args.min_MAF  # optional
+    min_AF = args.min_AF  # optional
+    max_AF = args.max_AF  # optional
+    min_DP = args.min_DP  # optional
     INFO_rules = args.INFO_rules  # optional
     sample_rules = args.sample_rules  # optional
 
@@ -389,19 +406,20 @@ def main() -> None:
     print(f'LOG:AF_key="{AF_key}"')
     print(f'LOG:AF_key_new="{AF_key_new}"')
     print(f'LOG:DP_key="{DP_key}"')
-    print(f'LOG:min_DP="{min_DP}"')
     print(f'LOG:min_AC="{min_AC}"')
-    print(f'LOG:min_MAF="{min_MAF}"')
+    print(f'LOG:min_AF="{min_AF}"')
+    print(f'LOG:max_AF="{max_AF}"')
+    print(f'LOG:min_DP="{min_DP}"')
     print(f'LOG:INFO_rules="{INFO_rules}"')
     print(f'LOG:sample_rules="{sample_rules}"')
 
     # -------------------------------------------------------------------------
     # Initialize sets for later use
     operator_choices = ('==', '!=', '<', '<=', '>=', '>')
-    decision_choices = ('fixedREF', 'fixedALT',
-                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMAF', 'failINFO', 'failsample', 'failFDR',
-                        'pass')
-    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMAF', 'failINFO', 'failsample', 'failFDR')
+    decision_choices = ('pass',
+                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFDR',
+                        'fixedREF', 'fixedALT',)
+    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFDR')
 
     # -------------------------------------------------------------------------
     # Prepare regex
@@ -447,6 +465,9 @@ def main() -> None:
 
     # -------------------------------------------------------------------------
     # PARSE INFO_rules and sample_rules into LISTS of 3-TUPLES using rule_regex
+    # rule_FILTER_metadata: List[str] = []
+    INFO_rule_FILTER_dict: Dict[str, List[str]] = defaultdict(list)
+    sample_rule_FILTER_dict: Dict[str, List[str]] = defaultdict(list)
 
     # INFO rules
     INFO_rule_lt = []
@@ -463,6 +484,8 @@ def main() -> None:
                 if operator in operator_choices:
                     print(f'LOG:INFO_rule_{i}:key="{key}",operator="{operator}",value="{value}"')
                     INFO_rule_lt.append((key, operator, value))
+                    INFO_rule_FILTER_dict[key].append(INFO_rule)
+                    # rule_FILTER_metadata.append(f'##FILTER=<ID={},Description="User-provided INFO rule: {INFO_rule}">')
                 else:
                     sys.exit(f'\n### ERROR: INFO_rule="{INFO_rule}" does not use an acceptable operator {operator_choices}')
             else:
@@ -488,13 +511,30 @@ def main() -> None:
                 if operator in operator_choices:
                     print(f'LOG:sample_rule_{i}:key="{key}",operator="{operator}",value="{value}"')
                     sample_rule_lt.append((key, operator, value))
+                    sample_rule_FILTER_dict[key].append(sample_rule)
+                    # rule_FILTER_metadata.append(f'##FILTER=<ID=sample_rule_{i},Description="User-provided sample rule: {sample_rule}">')
                 else:
                     sys.exit(
                         f'\n### ERROR: sample_rule="{sample_rule}" does not use an acceptable operator {operator_choices}')
             else:
                 sys.exit(f'\n### ERROR: sample_rule="{sample_rule}" does not use an acceptable format or operator {operator_choices}')
     # print(f'sample_rule_lt={sample_rule_lt}')
+
+    # VERIFY there are no duplicate keys; may have to deal with this later
+    if not set(INFO_rule_FILTER_dict.keys()).isdisjoint(set(sample_rule_FILTER_dict.keys())):
+        sys.exit(f'\n### ERROR: overlapping key(s) utilized for --INFO_rules ({set(INFO_rule_FILTER_dict.keys())}) and ' + \
+                 f'--sample_rules ({set(sample_rule_FILTER_dict.keys())}). Contact author for update')
+
     print()
+
+    # NEW LINES TO PRINT TO METADATA
+    new_FILTER_lines: List[str] = []
+
+    for key in INFO_rule_FILTER_dict:
+        new_FILTER_lines.append(f'##FILTER=<ID={key},Description="User-provided INFO rule(s): {",".join(INFO_rule_FILTER_dict[key])}">')
+
+    for key in sample_rule_FILTER_dict:
+        new_FILTER_lines.append(f'##FILTER=<ID={key},Description="User-provided sample rule(s): {",".join(sample_rule_FILTER_dict[key])}">')
 
 
     # -------------------------------------------------------------------------
@@ -502,16 +542,17 @@ def main() -> None:
     summaryKey_to_description = {
         'fixedREF': 'site fixed for the REF allele (100% reference)',
         'fixedALT': 'site fixed for a particular ALT allele (100% non-reference)',
-        'fail': 'minor allele variant fails criteria (all-inclusive)',
-        'failDP': 'read depth (coverage) fails min_DP',
-        'failAC': 'minor allele count (whether REF or ALT) fails min_AC',
-        'failZeroAC': 'minor allele variant fails when 0 reads support it',
-        'failMAF': 'minor allele frequency (whether REF or ALT) fails min_MAF',
-        'failINFO': 'one or more of the user-provided INFO_rules fails',
-        'failsample': 'one or more of the user-provided sample_rules fails',
-        'failFDR': 'minor allele variant fails FDR_cutoff',
+        'fail': 'allele fails criteria (all-inclusive)',
+        'failZeroAC': 'allele fails when 0 reads support it (REF or ALT)',
+        'failDP': 'read depth (coverage) fails --min_DP',
+        'failAC': 'allele count (REF or ALT) fails --min_AC',
+        'failMinAF': 'allele frequency (REF or ALT) fails --min_AF',
+        'failMaxAF': 'allele frequency (REF or ALT) fails --max_AF',
+        'failINFO': 'fails one or more of the user-provided --INFO_rules',
+        'failsample': 'fails one or more of the user-provided --sample_rules',
+        'failFDR': 'fails --FDR_cutoff',
         # 'failToFixedALT': 'failing minor allele matched REF; converted to fixed ALT allele',
-        'pass': 'minor allele variant exists and passes the criteria'
+        'pass': 'allele passes all criteria'
     }
 
     # # -------------------------------------------------------------------------
@@ -575,6 +616,14 @@ def main() -> None:
     total_ALT_pass_n = 0
     total_ALT_fail_n = 0
 
+    total_MAJOR_n = 0
+    total_MAJOR_pass_n = 0
+    total_MAJOR_fail_n = 0
+
+    total_MINOR_n = 0
+    total_MINOR_pass_n = 0
+    total_MINOR_fail_n = 0
+
     # count_dd: Dict[str, Dict[str, int]] = defaultdict(dict)
     # AF_ddl: Dict[str, Dict[str, float]] = defaultdict(dict)
     # AC_ddl: Dict[str, Dict[str, int]] = defaultdict(dict)
@@ -594,6 +643,16 @@ def main() -> None:
     ALT_AF_dl: Dict[str, List[float]] = defaultdict(list)
     ALT_AC_dl: Dict[str, List[int]] = defaultdict(list)
     ALT_DP_dl: Dict[str, List[int]] = defaultdict(list)
+
+    MAJOR_n_dict: Dict[str, int] = defaultdict(int)
+    MAJOR_AF_dl: Dict[str, List[float]] = defaultdict(list)
+    MAJOR_AC_dl: Dict[str, List[int]] = defaultdict(list)
+    MAJOR_DP_dl: Dict[str, List[int]] = defaultdict(list)
+
+    MINOR_n_dict: Dict[str, int] = defaultdict(int)
+    MINOR_AF_dl: Dict[str, List[float]] = defaultdict(list)
+    MINOR_AC_dl: Dict[str, List[int]] = defaultdict(list)
+    MINOR_DP_dl: Dict[str, List[int]] = defaultdict(list)
 
     # -------------------------------------------------------------------------
     # LOOP VCF files to EXTRACT SNP DATA
@@ -648,7 +707,7 @@ def main() -> None:
         #                    f'##FILTER=<ID=FDR_cutoff,Description="Analysis-wide false discovery rate (FDR) cutoff: {FDR_cutoff}">\n' + \
         #                    f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
         #                    f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support minor allele): {min_AC}">\n' + \
-        #                    f'##FILTER=<ID=min_MAF,Description="Minor allele frequency cutoff (min allowed): {min_MAF}">'
+        #                    f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">'
 
         # new_INFO_lines = f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="Indicates whether a site is multiallelic (more than one ALT allele)\">'
         new_metadata_lines = f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' + \
@@ -656,12 +715,17 @@ def main() -> None:
                              f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' + \
                              f'##FILTER=<ID=FDR_cutoff,Description="Analysis-wide false discovery rate (FDR) cutoff: {FDR_cutoff}">\n' + \
                              f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
-                             f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support minor allele): {min_AC}">\n' + \
-                             f'##FILTER=<ID=min_MAF,Description="Minor allele frequency cutoff (min allowed): {min_MAF}">\n' + \
-                             f'##INFO=<ID=DECISION,Number=A,Type=String,Description="The decision made to yield its status as PASS or FAIL">\n' + \
-                             f'##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the allele is a PASS or FAIL">\n' + \
-                             f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="Indicates that a site is multiallelic (more than one ALT allele)">\n' + \
-                             f'##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="Indicates that the REF allele failed to meet the criteria">'
+                             f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' + \
+                             f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' + \
+                             f'##FILTER=<ID=max_AF,Description="Major allele frequency cutoff (min allowed): {max_AF}">\n'
+
+        for new_FILTER_line in new_FILTER_lines:
+            new_metadata_lines += f'{new_FILTER_line}\n'
+
+        new_metadata_lines += f'##INFO=<ID=DECISION,Number=A,Type=String,Description="The decision made to yield its status as PASS or FAIL">\n' + \
+                              f'##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the allele is a PASS or FAIL">\n' + \
+                              f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="The site is multiallelic (more than one ALT allele)">\n' + \
+                              f'##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="The REF allele failed to meet the criteria">'
         # Others may be written if encountered below for AC_key_new, AF_key_new, or DP_key_new
 
         # Keep track of numbers of records/samples/pass
@@ -680,6 +744,14 @@ def main() -> None:
         this_ALT_n = 0
         this_ALT_pass_n = 0
         this_ALT_fail_n = 0
+
+        this_MAJOR_n = 0
+        this_MAJOR_pass_n = 0
+        this_MAJOR_fail_n = 0
+
+        this_MINOR_n = 0
+        this_MINOR_pass_n = 0
+        this_MINOR_fail_n = 0
 
         sample_n += 1
         this_sample = ''
@@ -942,16 +1014,16 @@ def main() -> None:
                 major_allele = ''
                 major_allele_AC = 0  # min possible, to top
 
-                minor_allele = ''
-                minor_allele_AC = this_DP  # max possible, to bottom
+                # minor_allele = ''
+                # minor_allele_AC = this_DP  # max possible, to bottom
 
                 for allele, AC in allele_AC_dict.items():
                     if AC > major_allele_AC:
                         major_allele = allele
                         major_allele_AC = AC
-                    if AC < minor_allele_AC:
-                        minor_allele = allele
-                        minor_allele_AC = AC
+                    # if AC < minor_allele_AC:
+                    #     minor_allele = allele
+                    #     minor_allele_AC = AC
 
                 # print(f'major_allele={major_allele};major_allele_AC={major_allele_AC}')
                 # print(f'minor_allele={minor_allele};minor_allele_AC={minor_allele_AC}')
@@ -961,7 +1033,7 @@ def main() -> None:
 
                 # -------------------------------------------------------------
                 # LOOP AND TEST ALL ALLELES, includes REF (1) and ALT (1 or more)
-                allele_decision_dict: Dict[str, str] = defaultdict(str)
+                allele_decision_dl: Dict[str, List(str)] = defaultdict(list)
                 for allele, AC in allele_AC_dict.items():
                     this_ALLELE_n += 1
                     total_ALLELE_n += 1
@@ -975,30 +1047,35 @@ def main() -> None:
 
                     # ---------------------------------------------------------
                     # CATEGORIZE
-                    decision = None
+                    decision_list: List[str] = []
 
                     # failZeroAC: it's ALREADY zero-frequency; could also be fixedALT or fixedREF (below)
-                    if decision is None and AC == 0:
-                        decision = 'failZeroAC'
+                    if AC == 0:
+                        decision_list.append('failZeroAC')
                         this_FILTER_new_list.append('AC')
 
                     # failDP: read depth (coverage) is insufficient at this site
-                    if decision is None and this_DP < min_DP:
-                        decision = 'failDP'
+                    if this_DP < min_DP:
+                        decision_list.append('failDP')
                         this_FILTER_new_list.append('DP')
 
-                    # failAC: minor allele count (whether REF or ALT) is insufficient at this site
-                    if decision is None and AC < min_AC:
-                        decision = 'failAC'
+                    # failAC: allele count (whether REF or ALT) is insufficient at this site
+                    if AC < min_AC:
+                        decision_list.append('failAC')
                         this_FILTER_new_list.append('AC')
 
-                    # failMAF: minor allele frequency (whether REF or ALT) fails min_MAF
-                    if decision is None and AC / this_DP < min_MAF:
-                        decision = 'failMAF'
+                    # failMinAF: allele frequency (whether REF or ALT) fails min_AF
+                    if AC / this_DP < min_AF:
+                        decision_list.append('failMinAF')
+                        this_FILTER_new_list.append('AF')
+
+                    # failMaxAF: allele frequency (whether REF or ALT) fails max_AF
+                    if AC / this_DP > max_AF:
+                        decision_list.append('failMaxAF')
                         this_FILTER_new_list.append('AF')
 
                     # failINFO: one of the user-provided INFO_rules
-                    if decision is None and len(INFO_rule_lt) > 0:
+                    if len(INFO_rule_lt) > 0:
                         for i, rule in enumerate(INFO_rule_lt):
                             (key, operator, value) = rule
 
@@ -1030,19 +1107,19 @@ def main() -> None:
                                         value = str(value)
                                         this_INFO_data_value = str(this_INFO_data_value)
 
-                                if decision is None:  # it could have changed during last rule
-                                    if (operator == '==' and not op.eq(this_INFO_data_value, value)) or \
-                                            (operator == '!=' and not op.ne(this_INFO_data_value, value)) or \
-                                            (operator == '<' and not op.lt(this_INFO_data_value, value)) or \
-                                            (operator == '<=' and not op.le(this_INFO_data_value, value)) or \
-                                            (operator == '>=' and not op.ge(this_INFO_data_value, value)) or \
-                                            (operator == '>' and not op.gt(this_INFO_data_value, value)):
-                                        # print('==> failINFO <==\n')
-                                        decision = 'failINFO'
-                                        this_FILTER_new_list.append(f'{key}')
+                                # if decision_list is None:  # it could have changed during last rule
+                                if (operator == '==' and not op.eq(this_INFO_data_value, value)) or \
+                                        (operator == '!=' and not op.ne(this_INFO_data_value, value)) or \
+                                        (operator == '<' and not op.lt(this_INFO_data_value, value)) or \
+                                        (operator == '<=' and not op.le(this_INFO_data_value, value)) or \
+                                        (operator == '>=' and not op.ge(this_INFO_data_value, value)) or \
+                                        (operator == '>' and not op.gt(this_INFO_data_value, value)):
+                                    # print('==> failINFO <==\n')
+                                    decision_list.append('failINFO')
+                                    this_FILTER_new_list.append(f'{key}')
 
                     # failsample: one of the user-provided sample_rules
-                    if decision is None and len(sample_rule_lt) > 0:
+                    if len(sample_rule_lt) > 0:
                         for i, rule in enumerate(sample_rule_lt):
                             (key, operator, value) = rule
 
@@ -1073,16 +1150,16 @@ def main() -> None:
                                         value = str(value)
                                         this_sample_data_value = str(this_sample_data_value)
 
-                                if decision is None:  # it could have changed during last rule
-                                    if (operator == '==' and not op.eq(this_sample_data_value, value)) or \
-                                            (operator == '!=' and not op.ne(this_sample_data_value, value)) or \
-                                            (operator == '<' and not op.lt(this_sample_data_value, value)) or \
-                                            (operator == '<=' and not op.le(this_sample_data_value, value)) or \
-                                            (operator == '>=' and not op.ge(this_sample_data_value, value)) or \
-                                            (operator == '>' and not op.gt(this_sample_data_value, value)):
-                                        # print('==> failsample <==\n')
-                                        decision = 'failsample'
-                                        this_FILTER_new_list.append(f'{key}')
+                                # if decision_list is None:  # it could have changed during last rule
+                                if (operator == '==' and not op.eq(this_sample_data_value, value)) or \
+                                        (operator == '!=' and not op.ne(this_sample_data_value, value)) or \
+                                        (operator == '<' and not op.lt(this_sample_data_value, value)) or \
+                                        (operator == '<=' and not op.le(this_sample_data_value, value)) or \
+                                        (operator == '>=' and not op.ge(this_sample_data_value, value)) or \
+                                        (operator == '>' and not op.gt(this_sample_data_value, value)):
+                                    # print('==> failsample <==\n')
+                                    decision_list.append('failsample')
+                                    this_FILTER_new_list.append(f'{key}')
 
                                     # # DETERMINE data types for values
                                     # # Ex/ '37' > '5' is *False*, so make sure we're using correct type
@@ -1107,15 +1184,14 @@ def main() -> None:
                             else:  # data_Number is not '1' or 'A'
                                 print(f'### WARNING: no method for implementing rule={rule}, which has Number={data_Number}; will not be implemented')
 
-
-                    # failFDR: MINOR allele FAILS because insufficient reads support it (FDR)
-                    if decision is None and FDR_implied > FDR_cutoff:
-                        decision = 'failFDR'
+                    # failFDR: allele FAILS because insufficient reads support it (FDR)
+                    if FDR_implied > FDR_cutoff:
+                        decision_list.append('failFDR')
                         this_FILTER_new_list.append('FDR')
 
                     # OTHERWISE PASS
-                    if decision is None:
-                        decision = 'pass'
+                    if len(decision_list) == 0:  # PASS
+                        decision_list.append('pass')
                         this_FILTER_new_list.append('PASS')
 
                     # # DIE if no decision was reached
@@ -1123,101 +1199,174 @@ def main() -> None:
                     #     sys.exit(f'\n### ERROR decision="None" at ' + \
                     #              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
-                    # STORE DECISION for use at THIS SITE
-                    allele_decision_dict[allele] = decision
+                    # DIE is nonsensical decision reached
+                    if len(decision_list) > 1 and 'pass' in decision_list:
+                        sys.exit('\n### ERROR: more than one decision made, but PASS among them')
 
-                    # STORE DECISION for reporting
-                    # ALL
-                    ALLELE_n_dict[decision] += 1
-                    ALLELE_AF_dl[decision].append(this_AF)  # BEFORE correction
-                    ALLELE_AC_dl[decision].append(AC)
-                    ALLELE_DP_dl[decision].append(this_DP)
+                    # TALLY pass/fail
+                    if decision_list[0] == 'pass':
+                        this_ALLELE_pass_n += 1
+                        total_ALLELE_pass_n += 1
+                        # PASS will be looped in the decision_list, BELOW
+                        # ALLELE_n_dict['pass'] += 1
+                        # ALLELE_AF_dl['pass'].append(this_AF)  # BEFORE correction
+                        # ALLELE_AC_dl['pass'].append(AC)
+                        # ALLELE_DP_dl['pass'].append(this_DP)
 
-                    # By REF/ALT status
-                    if allele == this_REF:
-                        this_REF_n += 1
-                        total_REF_n += 1
-                        REF_n_dict[decision] += 1
-                        REF_AF_dl[decision].append(this_AF)
-                        REF_AC_dl[decision].append(AC)
-                        REF_DP_dl[decision].append(this_DP)
                     else:
-                        this_ALT_n += 1
-                        total_ALT_n += 1
-                        ALT_n_dict[decision] += 1
-                        ALT_AF_dl[decision].append(this_AF)
-                        ALT_AC_dl[decision].append(AC)
-                        ALT_DP_dl[decision].append(this_DP)
-
-                    # FAILING
-                    if decision in decision_choices_FAIL:
-                        # print(f'==> {decision} <==\n')
-
                         this_ALLELE_fail_n += 1
                         total_ALLELE_fail_n += 1
-
                         ALLELE_n_dict['fail'] += 1
-                        ALLELE_AF_dl['fail'].append(this_AF)
+                        ALLELE_AF_dl['fail'].append(this_AF)  # BEFORE correction
                         ALLELE_AC_dl['fail'].append(AC)
                         ALLELE_DP_dl['fail'].append(this_DP)
 
-                        # By REF/ALT status
-                        REForALT = None
-                        if allele == this_REF:
-                            this_REF_fail_n += 1
-                            total_REF_fail_n += 1
+                    # TALLY pass/fail by MAJOR/MINOR
+                    if allele == major_allele:
+                        this_MAJOR_n += 1
+                        total_MAJOR_n += 1
 
-                            REForALT = 'REF'
-                            REF_n_dict['fail'] += 1
-                            REF_AF_dl['fail'].append(this_AF)
-                            REF_AC_dl['fail'].append(AC)
-                            REF_DP_dl['fail'].append(this_DP)
-                            this_INFO_data['REF_FAIL'] = None
+                        if decision_list[0] == 'pass':
+                            this_MAJOR_pass_n += 1
+                            total_MAJOR_pass_n += 1
+
                         else:
-                            this_ALT_fail_n += 1
-                            total_ALT_fail_n += 1
+                            this_MAJOR_fail_n += 1
+                            total_MAJOR_fail_n += 1
+                            MAJOR_n_dict['fail'] += 1
+                            MAJOR_AF_dl['fail'].append(this_AF)  # BEFORE correction
+                            MAJOR_AC_dl['fail'].append(AC)
+                            MAJOR_DP_dl['fail'].append(this_DP)
+                    else:
+                        this_MINOR_n += 1
+                        total_MINOR_n += 1
 
-                            REForALT = 'ALT'
-                            ALT_n_dict['fail'] += 1
-                            ALT_AF_dl['fail'].append(this_AF)
-                            ALT_AC_dl['fail'].append(AC)
-                            ALT_DP_dl['fail'].append(this_DP)
+                        if decision_list[0] == 'pass':
+                            this_MINOR_pass_n += 1
+                            total_MINOR_pass_n += 1
 
-                        # PRINT output string for log for FAILS
-                        out_string = f'FAILED: file="{this_VCF_file}"' + \
-                                     f';seq="{this_CHROM}"' + \
-                                     f';pos="{this_POS}"' + \
-                                     f';allele_FAILED="{REForALT}"' + \
-                                     f';REF="{this_REF}"' + \
-                                     f';ALT="{this_ALT}"' + \
-                                     f';AF="{round(this_AF, 5)}"' + \
-                                     f';AC="{AC}"' + \
-                                     f';DP="{this_DP}"' + \
-                                     f';FDR="{round(FDR_implied, 5)}"' + \
-                                     f';DECISION="{decision}"' + \
-                                     f';STATUS="FAIL"'
-                        print(out_string)
+                        else:
+                            this_MINOR_fail_n += 1
+                            total_MINOR_fail_n += 1
+                            MINOR_n_dict['fail'] += 1
+                            MINOR_AF_dl['fail'].append(this_AF)  # BEFORE correction
+                            MINOR_AC_dl['fail'].append(AC)
+                            MINOR_DP_dl['fail'].append(this_DP)
 
-                    else:  # it PASSED
-                        this_ALLELE_pass_n += 1
-                        total_ALLELE_pass_n += 1
+                    # TALLY pass/fail by REF/ALT
+                    if allele == this_REF:
+                        this_REF_n += 1
+                        total_REF_n += 1
 
-                        if allele == this_REF:
+                        if decision_list[0] == 'pass':
                             this_REF_pass_n += 1
                             total_REF_pass_n += 1
+
                         else:
+                            this_REF_fail_n += 1
+                            total_REF_fail_n += 1
+                            REF_n_dict['fail'] += 1
+                            REF_AF_dl['fail'].append(this_AF)  # BEFORE correction
+                            REF_AC_dl['fail'].append(AC)
+                            REF_DP_dl['fail'].append(this_DP)
+                            this_INFO_data['REF_FAIL'] = None  # REF only
+
+                    else:
+                        this_ALT_n += 1
+                        total_ALT_n += 1
+
+                        if decision_list[0] == 'pass':
                             this_ALT_pass_n += 1
                             total_ALT_pass_n += 1
 
+                        else:
+                            this_ALT_fail_n += 1
+                            total_ALT_fail_n += 1
+                            ALT_n_dict['fail'] += 1
+                            ALT_AF_dl['fail'].append(this_AF)  # BEFORE correction
+                            ALT_AC_dl['fail'].append(AC)
+                            ALT_DP_dl['fail'].append(this_DP)
+
+                    # STORE DECISION for use at THIS SITE
+                    allele_decision_dl[allele] = decision_list
+
+                    for decision in decision_list:  # this includes 'pass'
+                        # STORE DECISION for reporting
+                        # ALL
+                        ALLELE_n_dict[decision] += 1
+                        ALLELE_AF_dl[decision].append(this_AF)  # BEFORE correction
+                        ALLELE_AC_dl[decision].append(AC)
+                        ALLELE_DP_dl[decision].append(this_DP)
+
+                        # By MAJOR/MINOR status
+                        if allele == major_allele:
+                            MAJOR_n_dict[decision] += 1
+                            MAJOR_AF_dl[decision].append(this_AF)  # BEFORE correction
+                            MAJOR_AC_dl[decision].append(AC)
+                            MAJOR_DP_dl[decision].append(this_DP)
+                        else:
+                            MINOR_n_dict[decision] += 1
+                            MINOR_AF_dl[decision].append(this_AF)  # BEFORE correction
+                            MINOR_AC_dl[decision].append(AC)
+                            MINOR_DP_dl[decision].append(this_DP)
+
+                        # By REF/ALT status
+                        if allele == this_REF:
+                            REF_n_dict[decision] += 1
+                            REF_AF_dl[decision].append(this_AF)  # BEFORE correction
+                            REF_AC_dl[decision].append(AC)
+                            REF_DP_dl[decision].append(this_DP)
+                        else:
+                            ALT_n_dict[decision] += 1
+                            ALT_AF_dl[decision].append(this_AF)  # BEFORE correction
+                            ALT_AC_dl[decision].append(AC)
+                            ALT_DP_dl[decision].append(this_DP)
+
+                        # REPORT FAILING to STDOUT
+                        if decision in decision_choices_FAIL:
+                            # print(f'==> {decision} <==\n')
+
+                            # By REF/ALT status
+                            REForALT = None
+                            if allele == this_REF:
+                                REForALT = 'REF'
+                            else:
+                                REForALT = 'ALT'
+
+                            # PRINT output string for log for FAILS
+                            out_string = f'FAILED: file="{this_VCF_file}"' + \
+                                         f';seq="{this_CHROM}"' + \
+                                         f';pos="{this_POS}"' + \
+                                         f';allele_FAILED="{REForALT}"' + \
+                                         f';REF="{this_REF}"' + \
+                                         f';ALT="{this_ALT}"' + \
+                                         f';AF="{round(this_AF, 5)}"' + \
+                                         f';AC="{AC}"' + \
+                                         f';DP="{this_DP}"' + \
+                                         f';FDR="{round(FDR_implied, 5)}"' + \
+                                         f';DECISION="{decision}"' + \
+                                         f';STATUS="FAIL"'
+                            print(out_string)
+
+                    # if round(this_AF, 3) == 0.414:
+                    #     sys.exit(f'\nfile="{this_VCF_file}"' + \
+                    #              f'\nseq="{this_CHROM}"' + \
+                    #              f'\npos="{this_POS}"' + \
+                    #              f'\nallele_AC_dict={dict(allele_AC_dict)}')
 
                 # PERFORM AC, AF CORRECTION given the decisions made
-                # fail_n = len([x for x in allele_decision_dict.values() if x in decision_choices_FAIL])
+                # fail_n = len([x for x in allele_decision_dl.values() if x in decision_choices_FAIL])
 
-                alleles_fail = [allele for allele, decision in allele_decision_dict.items() if decision in decision_choices_FAIL]
+                # alleles_fail = [allele for allele, decision in allele_decision_dl.items() if decision in decision_choices_FAIL]
+                alleles_fail = [allele for allele, decision_list in allele_decision_dl.items() if decision_list[0] != 'pass']
                 # fail_n = len(alleles_fail)
 
-                alleles_pass = [allele for allele, decision in allele_decision_dict.items() if not decision in decision_choices_FAIL]
+                # alleles_pass = [allele for allele, decision in allele_decision_dl.items() if not decision in decision_choices_FAIL]
+                alleles_pass = [allele for allele, decision_list in allele_decision_dl.items() if decision_list[0] == 'pass']
                 pass_n = len(alleles_pass)
+
+                # SAVE a PRE-CORRECTED copy of allele counts
+                allele_AC_dict_preCorr = dict(allele_AC_dict)
 
                 # MAJOR fails but ONE OR MORE MINORS do NOT
                 if major_allele in alleles_fail and pass_n > 0:
@@ -1260,13 +1409,13 @@ def main() -> None:
                     # print(f'AFTER CORRECTION, allele_AC_dict={allele_AC_dict}')
 
                 # IF ALL alleles fail after correction, assign ALL READS to the MAJOR ALLELE (due to ANY REASON, e.g., failDP)
-                # if sum(allele_AC_dict.values()) == 0 and allele_decision_dict[this_REF] == 'failDP' and this_REF == major_allele:
+                # if sum(allele_AC_dict.values()) == 0 and allele_decision_dl[this_REF] == 'failDP' and this_REF == major_allele:
                 #     allele_AC_dict[this_REF] = this_DP
                 new_AC_sum = sum(allele_AC_dict.values())
 
                 # DIE if the above step didn't take care of it
                 if this_DP != new_AC_sum:  # or this_POS == 7529:
-                    if new_AC_sum == 0:  # and 'failDP' in allele_decision_dict.values():
+                    if new_AC_sum == 0:  # and 'failDP' in allele_decision_dl.values():
                         allele_AC_dict[major_allele] = this_DP
                         # print(f'AFTER CORRECTION 2, allele_AC_dict={allele_AC_dict}')
 
@@ -1281,42 +1430,65 @@ def main() -> None:
                     else:
                         sys.exit(f'\n### ERROR: depth differs before ({this_DP}) and after ({sum(allele_AC_dict.values())}) correction for failing alleles: ' + \
                              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"\n' + \
-                             f'allele_decision_dict={dict(allele_decision_dict)}\n' + \
+                             f'allele_decision_dl={dict(allele_decision_dl)}\n' + \
                              f'allele_AC_dict={dict(allele_AC_dict)}')
 
                 # TODO: make sure that if NEW KEY is identical to the ALREADY KEY, we don't overwrite it too soon
 
                 # -------------------------------------------------------------
-                # LOOP ALL ALLELES FOR TRACKING FIXED ONES
+                # LOOP ALL ALLELES FOR TRACKING FIXED ONES (REF or ALT)
                 for this_allele, this_AC in allele_AC_dict.items():
-                    this_AF = this_AC / this_DP
-                    if round(this_AF, 3) == 1.000:
+                    this_AF_preCorr = allele_AC_dict_preCorr[this_allele] / this_DP
+                    this_AF_corr = this_AC / this_DP  # AFTER correction
+                    if round(this_AF_corr, 3) == 1.000:
                         # print(f'this_REF={this_REF};this_allele={this_allele}')
                         if this_allele == this_REF:
                             ALLELE_n_dict['fixedREF'] += 1
-                            ALLELE_AF_dl['fixedREF'].append(this_AF)
+                            ALLELE_AF_dl['fixedREF'].append(this_AF_preCorr)
                             ALLELE_AC_dl['fixedREF'].append(this_AC)
                             ALLELE_DP_dl['fixedREF'].append(this_DP)
 
                             REF_n_dict['fixedREF'] += 1
-                            REF_AF_dl['fixedREF'].append(this_AF)
+                            REF_AF_dl['fixedREF'].append(this_AF_preCorr)
                             REF_AC_dl['fixedREF'].append(this_AC)
                             REF_DP_dl['fixedREF'].append(this_DP)
+
+                            if this_allele == major_allele:
+                                MAJOR_n_dict['fixedREF'] += 1
+                                MAJOR_AF_dl['fixedREF'].append(this_AF_preCorr)
+                                MAJOR_AC_dl['fixedREF'].append(this_AC)
+                                MAJOR_DP_dl['fixedREF'].append(this_DP)
+                            else:
+                                MINOR_n_dict['fixedREF'] += 1
+                                MINOR_AF_dl['fixedREF'].append(this_AF_preCorr)
+                                MINOR_AC_dl['fixedREF'].append(this_AC)
+                                MINOR_DP_dl['fixedREF'].append(this_DP)
                         else:
                             ALLELE_n_dict['fixedALT'] += 1
-                            ALLELE_AF_dl['fixedALT'].append(this_AF)
+                            ALLELE_AF_dl['fixedALT'].append(this_AF_preCorr)
                             ALLELE_AC_dl['fixedALT'].append(this_AC)
                             ALLELE_DP_dl['fixedALT'].append(this_DP)
 
                             ALT_n_dict['fixedALT'] += 1
-                            ALT_AF_dl['fixedALT'].append(this_AF)
+                            ALT_AF_dl['fixedALT'].append(this_AF_preCorr)
                             ALT_AC_dl['fixedALT'].append(this_AC)
                             ALT_DP_dl['fixedALT'].append(this_DP)
+
+                            if this_allele == major_allele:
+                                MAJOR_n_dict['fixedALT'] += 1
+                                MAJOR_AF_dl['fixedALT'].append(this_AF_preCorr)
+                                MAJOR_AC_dl['fixedALT'].append(this_AC)
+                                MAJOR_DP_dl['fixedALT'].append(this_DP)
+                            else:
+                                MINOR_n_dict['fixedALT'] += 1
+                                MINOR_AF_dl['fixedALT'].append(this_AF_preCorr)
+                                MINOR_AC_dl['fixedALT'].append(this_AC)
+                                MINOR_DP_dl['fixedALT'].append(this_DP)
 
                 # -------------------------------------------------------------
                 # LOOP the ALT alleles (usually just one)
                 # REF_fails = allele_AC_dict[this_REF] == 0  # True or False
-                decision_list: List[str] = []  # 'pass' included
+                decision_list_ALL: List[str] = []  # 'pass' included
                 status_list: List[str] = []  # 'pass' included
                 new_AC_list: List[int] = []
                 new_AF_list: List[float] = []
@@ -1327,8 +1499,8 @@ def main() -> None:
 
                     # Determine if the ALT is MAJOR
                     # this_AF = float(this_AF_list[i])
-                    this_AF = allele_AC_dict[this_ALT] / this_DP
-                    ALT_IS_MAJOR = this_AF >= 0.5  # True or False
+                    this_AF_corr = allele_AC_dict[this_ALT] / this_DP
+                    ALT_IS_MAJOR = this_AF_corr >= 0.5  # True or False
 
                     # if ALT_IS_MAJOR and round(this_AF, 3) == 1.000:
                     #     ALLELE_n_dict['fixedALT'] += 1
@@ -1340,12 +1512,14 @@ def main() -> None:
                                  f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     # Construct new records
-                    decision = allele_decision_dict[this_ALT]
-                    decision_list.append(decision)
-                    status = 'FAIL' if decision in decision_choices_FAIL else 'PASS'
+                    decision_list_ALT = allele_decision_dl[this_ALT]
+                    # decision_list_ALL.append(decision)
+                    decision_list_ALL.extend(decision_list_ALT)
+                    status = 'FAIL' if decision_list_ALL[0] != 'pass' else 'PASS'
+                    # status = 'FAIL' if decision in decision_choices_FAIL else 'PASS'  # TODO FIX THIS
                     status_list.append(status)
                     new_AC_list.append(allele_AC_dict[this_ALT])
-                    new_AF_list.append(round(this_AF, 5))
+                    new_AF_list.append(round(this_AF_corr, 5))
 
                 # -------------------------------------------------------------
                 # REPLACE or ADD DATA for SAMPLE
@@ -1442,7 +1616,7 @@ def main() -> None:
                     new_INFO_list.append(key if this_INFO_data[key] is None else f'{key}={this_INFO_data[key]}')
 
                 # Add entries for DECISION, STATUS, and MULTIALLELIC
-                new_INFO_list.append(f'DECISION={",".join(map(str, decision_list))}')
+                new_INFO_list.append(f'DECISION={",".join(map(str, decision_list_ALL))}')
                 new_INFO_list.append(f'STATUS={",".join(map(str, status_list))}')
 
                 if this_ALT_n > 1:
@@ -1513,14 +1687,15 @@ def main() -> None:
     print('# -----------------------------------------------------------------------------')
     print(f'Total samples (files) examined: {sample_n}')
     print(f'Total records (lines) examined: {total_record_n}')
-    print(f'Total ALLELES examined: {total_ALLELE_n} ({total_REF_n} REF, {total_ALT_n} ALT)')
+    print(f'Total ALLELES examined: {total_ALLELE_n} ({total_REF_n} REF + {total_ALT_n} ALT; {total_MAJOR_n} MAJOR + {total_MINOR_n} MINOR)')
     print(f'Total ALLELES pass: {ALLELE_n_dict["pass"]}/{total_ALLELE_n}={round(100 * total_ALLELE_pass_n / total_ALLELE_n, 1)}%')
     print(f'Total REF pass: {REF_n_dict["pass"]}/{total_REF_n}={round(100 * total_REF_pass_n / total_REF_n, 1)}%')
     print(f'Total ALT pass: {ALT_n_dict["pass"]}/{total_ALT_n}={round(100 * total_ALT_pass_n / total_ALT_n, 1)}%')
+    print(f'Total MAJOR pass: {MAJOR_n_dict["pass"]}/{total_MAJOR_n}={round(100 * total_MAJOR_pass_n / total_MAJOR_n, 1)}%')
+    print(f'Total MINOR pass: {MINOR_n_dict["pass"]}/{total_MINOR_n}={round(100 * total_MINOR_pass_n / total_MINOR_n, 1)}%')
     print()
     # print(f'Total variants fail: {ALT_n_dict["fail"]}')
     # print(f'Fraction variants fail: {round(100 * ALT_n_dict["fail"] / total_ALT_n, 1)}%')
-
 
 
     print('=============> ALL ALLELES (at least 2 per record, REF and ALT) <==============')
@@ -1545,7 +1720,7 @@ def main() -> None:
             median_freq = round(np.median(np.array(ALLELE_AF_dl[decision])), 3)
             Q3_freq = round(np.quantile(np.array(ALLELE_AF_dl[decision]), 0.75), 3)
             max_freq = round(np.max(np.array(ALLELE_AF_dl[decision])), 3)
-            print(f'MAF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+            print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
             n_AC = len(ALLELE_AC_dl[decision])
             min_AC = np.min(np.array(ALLELE_AC_dl[decision]))
@@ -1592,7 +1767,7 @@ def main() -> None:
                 median_freq = round(np.median(np.array(REF_AF_dl[decision])), 3)
                 Q3_freq = round(np.quantile(np.array(REF_AF_dl[decision]), 0.75), 3)
                 max_freq = round(np.max(np.array(REF_AF_dl[decision])), 3)
-                print(f'MAF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+                print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
                 n_AC = len(REF_AC_dl[decision])
                 min_AC = np.min(np.array(REF_AC_dl[decision]))
@@ -1639,7 +1814,7 @@ def main() -> None:
                 median_freq = round(np.median(np.array(ALT_AF_dl[decision])), 3)
                 Q3_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.75), 3)
                 max_freq = round(np.max(np.array(ALT_AF_dl[decision])), 3)
-                print(f'MAF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+                print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
                 n_AC = len(ALT_AC_dl[decision])
                 min_AC = np.min(np.array(ALT_AC_dl[decision]))
@@ -1662,6 +1837,101 @@ def main() -> None:
                 print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
 
+    print('=====================> MAJOR ALLELES (1 or more per record) <====================')
+    print(f'MAJOR_n={total_MAJOR_n}')
+    # print(f'MAJOR_fail_n={total_MAJOR_fail_n}={round(100 * total_MAJOR_fail_n / total_MAJOR_n, 1)}%')
+    # print(f'MAJOR_pass_n={total_MAJOR_pass_n}={round(100 * total_MAJOR_pass_n / total_MAJOR_n, 1)}%')
+    for decision in decision_choices:
+        print(f'MAJOR_{decision}={MAJOR_n_dict[decision]}={round(100 * MAJOR_n_dict[decision] / total_MAJOR_n, 1)}%')
+
+    for decision in decision_choices:  # MAJOR_n_dict.keys():
+        print('')
+        # print('# -----------------------------------------------------------------------------')
+        print(f'==> "{decision}": {summaryKey_to_description[decision]}')
+        print(f'MAJOR_{decision}_n={MAJOR_n_dict[decision]}')
+
+        if MAJOR_n_dict[decision] > 0:
+            n_freq = len(MAJOR_AF_dl[decision])
+            min_freq = round(np.min(np.array(MAJOR_AF_dl[decision])), 3)
+            Q1_freq = round(np.quantile(np.array(MAJOR_AF_dl[decision]), 0.25), 3)
+            mean_freq = round(np.mean(np.array(MAJOR_AF_dl[decision])), 3)
+            std_freq = round(np.std(np.array(MAJOR_AF_dl[decision])), 3)
+            median_freq = round(np.median(np.array(MAJOR_AF_dl[decision])), 3)
+            Q3_freq = round(np.quantile(np.array(MAJOR_AF_dl[decision]), 0.75), 3)
+            max_freq = round(np.max(np.array(MAJOR_AF_dl[decision])), 3)
+            print(
+                f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+
+            n_AC = len(MAJOR_AC_dl[decision])
+            min_AC = np.min(np.array(MAJOR_AC_dl[decision]))
+            Q1_AC = round(np.quantile(np.array(MAJOR_AC_dl[decision]), 0.25), 3)
+            mean_AC = round(np.mean(np.array(MAJOR_AC_dl[decision])), 1)
+            std_AC = round(np.std(np.array(MAJOR_AC_dl[decision])), 3)
+            median_AC = np.median(np.array(MAJOR_AC_dl[decision]))
+            Q3_AC = round(np.quantile(np.array(MAJOR_AC_dl[decision]), 0.75), 3)
+            max_AC = np.max(np.array(MAJOR_AC_dl[decision]))
+            print(
+                f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
+
+            n_DP = len(MAJOR_DP_dl[decision])
+            min_DP = np.min(np.array(MAJOR_DP_dl[decision]))
+            Q1_DP = round(np.quantile(np.array(MAJOR_DP_dl[decision]), 0.25), 3)
+            mean_DP = round(np.mean(np.array(MAJOR_DP_dl[decision])), 1)
+            std_DP = round(np.std(np.array(MAJOR_DP_dl[decision])), 3)
+            median_DP = np.median(np.array(MAJOR_DP_dl[decision]))
+            Q3_DP = round(np.quantile(np.array(MAJOR_DP_dl[decision]), 0.75), 3)
+            max_DP = np.max(np.array(MAJOR_DP_dl[decision]))
+            print(
+                f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
+    print()
+
+    print('=====================> MINOR ALLELES (1 or more per record) <====================')
+    print(f'MINOR_n={total_MINOR_n}')
+    # print(f'MINOR_fail_n={total_MINOR_fail_n}={round(100 * total_MINOR_fail_n / total_MINOR_n, 1)}%')
+    # print(f'MINOR_pass_n={total_MINOR_pass_n}={round(100 * total_MINOR_pass_n / total_MINOR_n, 1)}%')
+    for decision in decision_choices:
+        print(f'MINOR_{decision}={MINOR_n_dict[decision]}={round(100 * MINOR_n_dict[decision] / total_MINOR_n, 1)}%')
+
+    for decision in decision_choices:  # MINOR_n_dict.keys():
+        print('')
+        # print('# -----------------------------------------------------------------------------')
+        print(f'==> "{decision}": {summaryKey_to_description[decision]}')
+        print(f'MINOR_{decision}_n={MINOR_n_dict[decision]}')
+
+        if MINOR_n_dict[decision] > 0:
+            n_freq = len(MINOR_AF_dl[decision])
+            min_freq = round(np.min(np.array(MINOR_AF_dl[decision])), 3)
+            Q1_freq = round(np.quantile(np.array(MINOR_AF_dl[decision]), 0.25), 3)
+            mean_freq = round(np.mean(np.array(MINOR_AF_dl[decision])), 3)
+            std_freq = round(np.std(np.array(MINOR_AF_dl[decision])), 3)
+            median_freq = round(np.median(np.array(MINOR_AF_dl[decision])), 3)
+            Q3_freq = round(np.quantile(np.array(MINOR_AF_dl[decision]), 0.75), 3)
+            max_freq = round(np.max(np.array(MINOR_AF_dl[decision])), 3)
+            print(
+                f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+
+            n_AC = len(MINOR_AC_dl[decision])
+            min_AC = np.min(np.array(MINOR_AC_dl[decision]))
+            Q1_AC = round(np.quantile(np.array(MINOR_AC_dl[decision]), 0.25), 3)
+            mean_AC = round(np.mean(np.array(MINOR_AC_dl[decision])), 1)
+            std_AC = round(np.std(np.array(MINOR_AC_dl[decision])), 3)
+            median_AC = np.median(np.array(MINOR_AC_dl[decision]))
+            Q3_AC = round(np.quantile(np.array(MINOR_AC_dl[decision]), 0.75), 3)
+            max_AC = np.max(np.array(MINOR_AC_dl[decision]))
+            print(
+                f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
+
+            n_DP = len(MINOR_DP_dl[decision])
+            min_DP = np.min(np.array(MINOR_DP_dl[decision]))
+            Q1_DP = round(np.quantile(np.array(MINOR_DP_dl[decision]), 0.25), 3)
+            mean_DP = round(np.mean(np.array(MINOR_DP_dl[decision])), 1)
+            std_DP = round(np.std(np.array(MINOR_DP_dl[decision])), 3)
+            median_DP = np.median(np.array(MINOR_DP_dl[decision]))
+            Q3_DP = round(np.quantile(np.array(MINOR_DP_dl[decision]), 0.75), 3)
+            max_DP = np.max(np.array(MINOR_DP_dl[decision]))
+            print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
+    print()
+
     # -------------------------------------------------------------------------
     # PRINT stats
     # print(f'ALT_n_dict={ALT_n_dict}')
@@ -1681,7 +1951,7 @@ def main() -> None:
                 Q3_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.75), 3)
                 max_freq = round(np.max(np.array(ALT_AF_dl[decision])), 3)
                 print(
-                    f'MAF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
+                    f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
                 n_AC = len(ALT_AC_dl[decision])
                 min_AC = np.min(np.array(ALT_AC_dl[decision]))
