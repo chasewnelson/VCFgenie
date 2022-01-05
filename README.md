@@ -204,11 +204,11 @@ To use all currently available options, run as follows:
 
 At the command line (Terminal), VCFgenie will report a log of the input parameters, the file(s) to be processed, and various summary statistics related to `AC`, `AF`, and `DP` of passing and failing alleles (original values, before correction). Results will be reported separately for the following cateogories:
 
-* `ALLELES`: all alleles (REF and ALT)
-* `REF`: REF allele
-* `ALT`: ALT allele
-* `MAJOR`: MAJOR (most common) allele
-* `MINOR`: MINOR (not most common) allele
+* `ALLELES`: all alleles
+* `REF`: REF alleles
+* `ALT`: ALT alleles
+* `MAJOR`: MAJOR (most common) alleles
+* `MINOR`: MINOR (not most common) alleles
 
 Statistics include:
 
