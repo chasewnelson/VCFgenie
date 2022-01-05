@@ -207,7 +207,7 @@ At the command line (Terminal), VCFgenie will report:
 1. a log of the input parameters
 2. the file(s) to be processed
 3. data regarding each failing allele and MULTIALLELIC site
-4. FILE summary statistics
+4. PER-FILE summary statistics
 5. TOTAL summary statistics related to `AC`, `AF`, and `DP` of passing and failing alleles (original values, before correction)
 
 Results will be reported separately for the following categories:
