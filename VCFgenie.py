@@ -317,13 +317,13 @@ def get_args() -> Args:
     else:
         os.makedirs(args.out_dir)
 
-    if args.AC_key == args.AC_key_new:
-        # parser.error(f'AC_key="{args.AC_key}" may not match AC_key_new="{args.AC_key_new}"')
-        print(f'\n### WARNING: AC_key="{args.AC_key_new}" already exists and will be OVERWRITTEN')
-
-    if args.AF_key == args.AF_key_new:
-        # parser.error(f'AF_key="{args.AF_key}" may not match AF_key_new="{args.AF_key_new}"')
-        print(f'\n### WARNING: AF_key="{args.AF_key_new}" already exists and will be OVERWRITTEN')
+    # if args.AC_key == args.AC_key_new:
+    #     # parser.error(f'AC_key="{args.AC_key}" may not match AC_key_new="{args.AC_key_new}"')
+    #     print(f'\n### WARNING: AC_key="{args.AC_key_new}" already exists and will be OVERWRITTEN')
+    #
+    # if args.AF_key == args.AF_key_new:
+    #     # parser.error(f'AF_key="{args.AF_key}" may not match AF_key_new="{args.AF_key_new}"')
+    #     print(f'\n### WARNING: AF_key="{args.AF_key_new}" already exists and will be OVERWRITTEN')
 
     if args.min_AC < 0:
         parser.error(f'\n### ERROR: min_AC "{args.min_AC}" must be >= 0')
@@ -412,6 +412,14 @@ def main() -> None:
     print(f'LOG:min_DP="{min_DP}"')
     print(f'LOG:INFO_rules="{INFO_rules}"')
     print(f'LOG:sample_rules="{sample_rules}"')
+    print()
+
+    # WARN about overwriting
+    if AC_key == AC_key_new:
+        print(f'### WARNING: AC_key_new="{AC_key_new}" already exists as AC_key="{AC_key_new}" and will be OVERWRITTEN')
+
+    if AF_key == AF_key_new:
+        print(f'### WARNING: AF_key_new="{AF_key_new}" already exists as AF_key="{AF_key_new}" and will be OVERWRITTEN')
 
     # -------------------------------------------------------------------------
     # Initialize sets for later use
