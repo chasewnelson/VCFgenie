@@ -1,0 +1,540 @@
+# -----------------------------------------------------------------------------
+VCFgenie.py - dynamically filter within-sample (pooled sequencing) variants to control for a FDR
+# -----------------------------------------------------------------------------
+For DOCUMENTATION, run:
+	$ VCFgenie.py --help
+	$ pydoc ./VCFgenie.py
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+LOG:wd="/Users/cwnelson88/scripts_NGS/github_VCFgenie/EXAMPLE_INPUT"
+LOG:error_per_site="0.01103"
+LOG:seq_len="7857"
+LOG:num_samples="1"
+LOG:FDR_cutoff="0.05"
+LOG:out_dir="ex4b_out"
+LOG:AC_key="FAO"
+LOG:AC_key_new="NAC"
+LOG:AF_key="AF"
+LOG:AF_key_new="NAF"
+LOG:DP_key="FDP"
+LOG:min_AC="0"
+LOG:min_AF="0"
+LOG:max_AF="1"
+LOG:min_DP="1"
+LOG:INFO_rules="None"
+LOG:sample_rules="None"
+
+# -----------------------------------------------------------------------------
+VCF files to process (output files will have names of the form "<VCF_root_name>_filtered.vcf"):
+[IN_FILE_NAME] -> [OUT_FILE_NAME]
+example_A.vcf -> example_A_filtered.vcf
+example_B.vcf -> example_B_filtered.vcf
+
+# -----------------------------------------------------------------------------
+Analyzing file=example_A.vcf
+Analyzing sample=PAP288913_F1
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=548;REF=AC;ALT=['A', 'AG', 'GA']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="ALT";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="ALT";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="REF";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="REF";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="549";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1971";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="549";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1971";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="1012";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="1012";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="1194";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="1194";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=3217;REF=CC;ALT=['AC', 'AT']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3217";allele_FAILED="REF";REF="CC";ALT="AT";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3217";allele_FAILED="REF";REF="CC";ALT="AT";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3629";allele_FAILED="REF";REF="A";ALT="AG";AF="0.0";AC="0";DP="1972";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3629";allele_FAILED="REF";REF="A";ALT="AG";AF="0.0";AC="0";DP="1972";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=3630;REF=C;ALT=['A', 'G']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3630";allele_FAILED="ALT";REF="C";ALT="G";AF="0.007";AC="14";DP="1999";FDR="144.31578";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3723";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1988";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3723";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1988";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3724";allele_FAILED="REF";REF="G";ALT="GA";AF="0.0";AC="0";DP="1368";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3724";allele_FAILED="REF";REF="G";ALT="GA";AF="0.0";AC="0";DP="1368";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3725";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="3725";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="1986";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=4168;REF=T;ALT=['C', 'TC']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4168";allele_FAILED="ALT";REF="T";ALT="TC";AF="0.0";AC="0";DP="1968";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4168";allele_FAILED="ALT";REF="T";ALT="TC";AF="0.0";AC="0";DP="1968";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=4241;REF=AGT;ALT=['ATC', 'ATT']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4693";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4693";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4772";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1992";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="4772";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1992";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5119";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1987";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5119";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1987";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5146";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5146";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5147";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5147";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1997";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=5347;REF=CTT;ALT=['CTC', 'TTC']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5503";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="1972";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5503";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="1972";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5875";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1978";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="5875";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1978";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="6401";allele_FAILED="REF";REF="A";ALT="G";AF="0.0";AC="0";DP="1998";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="6401";allele_FAILED="REF";REF="A";ALT="G";AF="0.0";AC="0";DP="1998";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7164";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1900";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7164";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1900";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_A.vcf;seq=HPV18_Ref;pos=7232;REF=GTTGTTGTA;ALT=['GTGTTGTA', 'GT']
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7232";allele_FAILED="ALT";REF="GTTGTTGTA";ALT="GT";AF="0.0";AC="0";DP="1941";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7232";allele_FAILED="ALT";REF="GTTGTTGTA";ALT="GT";AF="0.0";AC="0";DP="1941";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7256";allele_FAILED="REF";REF="T";ALT="TA";AF="0.0";AC="0";DP="1975";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7256";allele_FAILED="REF";REF="T";ALT="TA";AF="0.0";AC="0";DP="1975";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7258";allele_FAILED="REF";REF="T";ALT="A";AF="0.0";AC="0";DP="1963";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7258";allele_FAILED="REF";REF="T";ALT="A";AF="0.0";AC="0";DP="1963";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7529";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="17";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7529";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="17";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7563";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="20";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7563";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="20";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_A.vcf";seq="HPV18_Ref";pos="7567";allele_FAILED="REF";REF="A";ALT="C";AF="0.05";AC="1";DP="20";FDR="558.0098";DECISION="failFDR";STATUS="FAIL"
+
+FILE SUMMARY for file=example_A.vcf:
+example_A.vcf:record_n=286
+example_A.vcf:ALLELE_n=580
+example_A.vcf:REF_n=286
+example_A.vcf:ALT_n=294
+example_A.vcf:ALLELES_pass=553/580=95.3%
+example_A.vcf:REF_pass=263/286=92.0%
+example_A.vcf:ALT_pass=290/294=98.6%
+
+# -----------------------------------------------------------------------------
+Analyzing file=example_B.vcf
+Analyzing sample=PAP189115_D4
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=374;REF=GGA;ALT=['AAA', 'AGA', 'GG']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="374";allele_FAILED="ALT";REF="GGA";ALT="GG";AF="0.0";AC="0";DP="1971";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="374";allele_FAILED="ALT";REF="GGA";ALT="GG";AF="0.0";AC="0";DP="1971";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=548;REF=AC;ALT=['A', 'AA', 'GA']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="ALT";REF="AC";ALT="GA";AF="0.00503";AC="10";DP="1990";FDR="1592.28121";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="REF";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="548";allele_FAILED="REF";REF="AC";ALT="GA";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=948;REF=C;ALT=['CG', 'T']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="948";allele_FAILED="ALT";REF="C";ALT="T";AF="0.0";AC="0";DP="1899";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="948";allele_FAILED="ALT";REF="C";ALT="T";AF="0.0";AC="0";DP="1899";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="1194";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1991";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="1194";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1991";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=2225;REF=TCA;ALT=['T', 'TA']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="2225";allele_FAILED="ALT";REF="TCA";ALT="TA";AF="0.0";AC="0";DP="1977";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="2225";allele_FAILED="ALT";REF="TCA";ALT="TA";AF="0.0";AC="0";DP="1977";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=2269;REF=CC;ALT=['TC', 'TT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="2269";allele_FAILED="REF";REF="CC";ALT="TT";AF="0.0";AC="0";DP="135";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="2269";allele_FAILED="REF";REF="CC";ALT="TT";AF="0.0";AC="0";DP="135";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3217";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1987";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3217";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1987";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3534";allele_FAILED="REF";REF="T";ALT="C";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3534";allele_FAILED="REF";REF="T";ALT="C";AF="0.0";AC="0";DP="1981";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3557";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3557";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1990";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3578";allele_FAILED="REF";REF="C";ALT="T";AF="0.0";AC="0";DP="1968";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3578";allele_FAILED="REF";REF="C";ALT="T";AF="0.0";AC="0";DP="1968";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=3586;REF=A;ALT=['C', 'T']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3586";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="1975";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3586";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="1975";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3629";allele_FAILED="REF";REF="A";ALT="AG";AF="0.0";AC="0";DP="518";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3629";allele_FAILED="REF";REF="A";ALT="AG";AF="0.0";AC="0";DP="518";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=3630;REF=C;ALT=['A', 'G']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3630";allele_FAILED="ALT";REF="C";ALT="G";AF="0.00574";AC="3";DP="523";FDR="2376.15942";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3630";allele_FAILED="REF";REF="C";ALT="G";AF="0.01338";AC="7";DP="523";FDR="28.27643";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3723";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="722";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3723";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="722";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3725";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="721";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="3725";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="721";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=4059;REF=G;ALT=['A', 'C']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4059";allele_FAILED="ALT";REF="G";ALT="C";AF="0.03846";AC="2";DP="52";FDR="124.68748";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4059";allele_FAILED="REF";REF="G";ALT="C";AF="0.0";AC="0";DP="52";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4059";allele_FAILED="REF";REF="G";ALT="C";AF="0.0";AC="0";DP="52";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=4119;REF=T;ALT=['C', 'TC']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4119";allele_FAILED="ALT";REF="T";ALT="TC";AF="0.0";AC="0";DP="1991";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4119";allele_FAILED="ALT";REF="T";ALT="TC";AF="0.0";AC="0";DP="1991";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=4241;REF=AGT;ALT=['ATC', 'ATT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4241";allele_FAILED="REF";REF="AGT";ALT="ATT";AF="0.0";AC="0";DP="1955";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4241";allele_FAILED="REF";REF="AGT";ALT="ATT";AF="0.0";AC="0";DP="1955";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=4579;REF=GG;ALT=['TA', 'TG']
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=4605;REF=CG;ALT=['C', 'TT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4605";allele_FAILED="ALT";REF="CG";ALT="TT";AF="0.0";AC="0";DP="1980";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4605";allele_FAILED="ALT";REF="CG";ALT="TT";AF="0.0";AC="0";DP="1980";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4693";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1416";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4693";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1416";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4772";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1397";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4772";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1397";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4948";allele_FAILED="REF";REF="A";ALT="T";AF="0.03922";AC="2";DP="51";FDR="120.18191";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="4993";allele_FAILED="REF";REF="A";ALT="C";AF="0.04545";AC="2";DP="44";FDR="90.69354";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5018";allele_FAILED="REF";REF="G";ALT="A";AF="0.07692";AC="3";DP="39";FDR="3.23211";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5119";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1988";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5119";allele_FAILED="REF";REF="G";ALT="T";AF="0.0";AC="0";DP="1988";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5146";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1994";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5146";allele_FAILED="REF";REF="AC";ALT="A";AF="0.0";AC="0";DP="1994";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5147";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1996";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5147";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1996";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=5504;REF=GCCCC;ALT=['GACCC', 'GACCT', 'GACTC']
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=5584;REF=AC;ALT=['GC', 'GT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5729";allele_FAILED="REF";REF="C";ALT="T";AF="0.0";AC="0";DP="1996";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5729";allele_FAILED="REF";REF="C";ALT="T";AF="0.0";AC="0";DP="1996";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5873";allele_FAILED="REF";REF="T";ALT="TA";AF="0.0";AC="0";DP="1176";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5873";allele_FAILED="REF";REF="T";ALT="TA";AF="0.0";AC="0";DP="1176";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5875";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1955";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="5875";allele_FAILED="REF";REF="C";ALT="A";AF="0.0";AC="0";DP="1955";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=6004;REF=GTTCCC;ALT=['GTTCAC', 'GTTCAT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="6401";allele_FAILED="REF";REF="A";ALT="G";AF="0.0";AC="0";DP="1998";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="6401";allele_FAILED="REF";REF="A";ALT="G";AF="0.0";AC="0";DP="1998";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=6917;REF=GG;ALT=['AA', 'AG']
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=7125;REF=GCCAGG;ALT=['ACCAGA', 'GCCAG']
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=7232;REF=GTTGTTGTATGTTGT;ALT=['ATTGTTGTATGTTGT', 'GTGTTGT', 'GTTGTTGTA']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7512";allele_FAILED="REF";REF="G";ALT="A";AF="0.04132";AC="5";DP="121";FDR="0.73644";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7528";allele_FAILED="REF";REF="A";ALT="AC";AF="0.0";AC="0";DP="124";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7528";allele_FAILED="REF";REF="A";ALT="AC";AF="0.0";AC="0";DP="124";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7530";allele_FAILED="REF";REF="T";ALT="C";AF="0.03226";AC="4";DP="124";FDR="9.48359";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=7561;REF=TTG;ALT=['T', 'TT']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7561";allele_FAILED="ALT";REF="TTG";ALT="TT";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7561";allele_FAILED="ALT";REF="TTG";ALT="TT";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7561";allele_FAILED="REF";REF="TTG";ALT="TT";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7561";allele_FAILED="REF";REF="TTG";ALT="TT";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7563";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7563";allele_FAILED="REF";REF="G";ALT="A";AF="0.0";AC="0";DP="159";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7567";allele_FAILED="REF";REF="A";ALT="C";AF="0.0";AC="0";DP="164";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7567";allele_FAILED="REF";REF="A";ALT="C";AF="0.0";AC="0";DP="164";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7592";allele_FAILED="REF";REF="T";ALT="C";AF="0.00556";AC="1";DP="180";FDR="3808.34286";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7643";allele_FAILED="REF";REF="T";ALT="G";AF="0.03165";AC="5";DP="158";FDR="2.5491";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7651";allele_FAILED="REF";REF="T";ALT="C";AF="0.0";AC="0";DP="151";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7651";allele_FAILED="REF";REF="T";ALT="C";AF="0.0";AC="0";DP="151";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7658";allele_FAILED="REF";REF="A";ALT="C";AF="0.0";AC="0";DP="150";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7658";allele_FAILED="REF";REF="A";ALT="C";AF="0.0";AC="0";DP="150";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+MULTIALLELIC: file=example_B.vcf;seq=HPV18_Ref;pos=7670;REF=A;ALT=['AT', 'T']
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7670";allele_FAILED="ALT";REF="A";ALT="T";AF="0.00685";AC="1";DP="146";FDR="3268.18285";DECISION="failFDR";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7670";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="146";FDR="7857.0";DECISION="failZeroAC";STATUS="FAIL"
+FAILED: file="example_B.vcf";seq="HPV18_Ref";pos="7670";allele_FAILED="REF";REF="A";ALT="T";AF="0.0";AC="0";DP="146";FDR="7857.0";DECISION="failFDR";STATUS="FAIL"
+
+FILE SUMMARY for file=example_B.vcf:
+example_B.vcf:record_n=272
+example_B.vcf:ALLELE_n=568
+example_B.vcf:REF_n=272
+example_B.vcf:ALT_n=296
+example_B.vcf:ALLELES_pass=521/568=91.7%
+example_B.vcf:REF_pass=235/272=86.4%
+example_B.vcf:ALT_pass=286/296=96.6%
+
+# -----------------------------------------------------------------------------
+=================================> SUMMARY <===================================
+# -----------------------------------------------------------------------------
+Total samples (files) examined: 2
+Total records (lines) examined: 558
+Total ALLELES examined: 1148 (558 REF + 590 ALT; 558 MAJOR + 590 MINOR)
+Total ALLELES pass: 1074/1148=93.6%
+Total REF pass: 498/558=89.2%
+Total ALT pass: 576/590=97.6%
+Total MAJOR pass: 558/558=100.0%
+Total MINOR pass: 516/590=87.5%
+
+=============> ALL ALLELES (at least 2 per record, REF and ALT) <==============
+ALLELE_n=1148
+ALLELE_pass=1074=93.6%
+ALLELE_fail=74=6.4%
+ALLELE_failZeroAC=60=5.2%
+ALLELE_failDP=0=0.0%
+ALLELE_failAC=0=0.0%
+ALLELE_failMinAF=0=0.0%
+ALLELE_failMaxAF=0=0.0%
+ALLELE_failINFO=0=0.0%
+ALLELE_failsample=0=0.0%
+ALLELE_failFDR=74=6.4%
+ALLELE_fixedREF=0=0.0%
+ALLELE_fixedALT=54=4.7%
+
+==> "pass": allele passes all criteria
+ALLELE_pass_n=1074
+AF_pass: n=1074;min=0.012;Q1=0.043;mean=0.519;std=0.44;median=0.772;Q3=0.96;max=1.0
+AC_pass: n=1074;min=8;Q1=82.0;mean=964.7;std=872.516;median=486.0;Q3=1905.75;max=1998
+DP_pass: n=1074;min=17;Q1=1982.25;mean=1889.5;std=374.111;median=1995.0;Q3=1998.0;max=2000
+
+==> "fail": allele fails criteria (all-inclusive)
+ALLELE_fail_n=74
+AF_fail: n=74;min=0.0;Q1=0.0;mean=0.005;std=0.014;median=0.0;Q3=0.0;max=0.077
+AC_fail: n=74;min=0;Q1=0.0;mean=0.8;std=2.311;median=0.0;Q3=0.0;max=14
+DP_fail: n=74;min=17;Q1=159.0;mean=1294.8;std=851.76;median=1965.5;Q3=1987.0;max=1999
+
+==> "failZeroAC": allele fails when 0 reads support it (REF or ALT)
+ALLELE_failZeroAC_n=60
+AF_failZeroAC: n=60;min=0.0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0.0
+AC_failZeroAC: n=60;min=0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0
+DP_failZeroAC: n=60;min=17;Q1=1062.5;mean=1497.4;std=759.303;median=1972.0;Q3=1988.0;max=1998
+
+==> "failDP": read depth (coverage) fails --min_DP
+ALLELE_failDP_n=0
+
+==> "failAC": allele count (REF or ALT) fails --min_AC
+ALLELE_failAC_n=0
+
+==> "failMinAF": allele frequency (REF or ALT) fails --min_AF
+ALLELE_failMinAF_n=0
+
+==> "failMaxAF": allele frequency (REF or ALT) fails --max_AF
+ALLELE_failMaxAF_n=0
+
+==> "failINFO": fails one or more of the user-provided --INFO_rules
+ALLELE_failINFO_n=0
+
+==> "failsample": fails one or more of the user-provided --sample_rules
+ALLELE_failsample_n=0
+
+==> "failFDR": fails --FDR_cutoff
+ALLELE_failFDR_n=74
+AF_failFDR: n=74;min=0.0;Q1=0.0;mean=0.005;std=0.014;median=0.0;Q3=0.0;max=0.077
+AC_failFDR: n=74;min=0;Q1=0.0;mean=0.8;std=2.311;median=0.0;Q3=0.0;max=14
+DP_failFDR: n=74;min=17;Q1=159.0;mean=1294.8;std=851.76;median=1965.5;Q3=1987.0;max=1999
+
+==> "fixedREF": site fixed for the REF allele (100% reference)
+ALLELE_fixedREF_n=0
+
+==> "fixedALT": site fixed for a particular ALT allele (100% non-reference)
+ALLELE_fixedALT_n=54
+AF_fixedALT: n=54;min=0.923;Q1=1.0;mean=0.993;std=0.017;median=1.0;Q3=1.0;max=1.0
+AC_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+DP_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+
+=========================> REF ALLELES (1 per record) <========================
+REF_n=558
+REF_pass=498=89.2%
+REF_fail=60=10.8%
+REF_failZeroAC=51=9.1%
+REF_failDP=0=0.0%
+REF_failAC=0=0.0%
+REF_failMinAF=0=0.0%
+REF_failMaxAF=0=0.0%
+REF_failINFO=0=0.0%
+REF_failsample=0=0.0%
+REF_failFDR=60=10.8%
+REF_fixedREF=0=0.0%
+
+==> "pass": allele passes all criteria
+REF_pass_n=498
+AF_pass: n=498;min=0.012;Q1=0.284;mean=0.724;std=0.377;median=0.952;Q3=0.966;max=0.973
+AC_pass: n=498;min=24;Q1=346.0;mean=1398.8;std=767.98;median=1885.0;Q3=1925.0;max=1946
+DP_pass: n=498;min=120;Q1=1985.0;mean=1929.7;std=276.501;median=1995.0;Q3=1999.0;max=2000
+
+==> "fail": allele fails criteria (all-inclusive)
+REF_fail_n=60
+AF_fail: n=60;min=0.0;Q1=0.0;mean=0.006;std=0.015;median=0.0;Q3=0.0;max=0.077
+AC_fail: n=60;min=0;Q1=0.0;mean=0.5;std=1.408;median=0.0;Q3=0.0;max=7
+DP_fail: n=60;min=17;Q1=158.75;mean=1253.9;std=859.007;median=1959.0;Q3=1987.25;max=1998
+
+==> "failZeroAC": allele fails when 0 reads support it (REF or ALT)
+REF_failZeroAC_n=51
+AF_failZeroAC: n=51;min=0.0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0.0
+AC_failZeroAC: n=51;min=0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0
+DP_failZeroAC: n=51;min=17;Q1=721.5;mean=1450.5;std=778.947;median=1972.0;Q3=1989.0;max=1998
+
+==> "failDP": read depth (coverage) fails --min_DP
+REF_failDP_n=0
+
+==> "failAC": allele count (REF or ALT) fails --min_AC
+REF_failAC_n=0
+
+==> "failMinAF": allele frequency (REF or ALT) fails --min_AF
+REF_failMinAF_n=0
+
+==> "failMaxAF": allele frequency (REF or ALT) fails --max_AF
+REF_failMaxAF_n=0
+
+==> "failINFO": fails one or more of the user-provided --INFO_rules
+REF_failINFO_n=0
+
+==> "failsample": fails one or more of the user-provided --sample_rules
+REF_failsample_n=0
+
+==> "failFDR": fails --FDR_cutoff
+REF_failFDR_n=60
+AF_failFDR: n=60;min=0.0;Q1=0.0;mean=0.006;std=0.015;median=0.0;Q3=0.0;max=0.077
+AC_failFDR: n=60;min=0;Q1=0.0;mean=0.5;std=1.408;median=0.0;Q3=0.0;max=7
+DP_failFDR: n=60;min=17;Q1=158.75;mean=1253.9;std=859.007;median=1959.0;Q3=1987.25;max=1998
+
+==> "fixedREF": site fixed for the REF allele (100% reference)
+REF_fixedREF_n=0
+
+=====================> ALT ALLELES (1 or more per record) <====================
+ALT_n=590
+ALT_pass=576=97.6%
+ALT_fail=14=2.4%
+ALT_failZeroAC=9=1.5%
+ALT_failDP=0=0.0%
+ALT_failAC=0=0.0%
+ALT_failMinAF=0=0.0%
+ALT_failMaxAF=0=0.0%
+ALT_failINFO=0=0.0%
+ALT_failsample=0=0.0%
+ALT_failFDR=14=2.4%
+ALT_fixedALT=54=9.2%
+
+==> "pass": allele passes all criteria
+ALT_pass_n=576
+AF_pass: n=576;min=0.012;Q1=0.035;mean=0.342;std=0.413;median=0.055;Q3=0.889;max=1.0
+AC_pass: n=576;min=8;Q1=66.0;mean=589.5;std=778.354;median=95.0;Q3=1572.75;max=1998
+DP_pass: n=576;min=17;Q1=1977.75;mean=1854.9;std=438.488;median=1994.0;Q3=1998.0;max=2000
+
+==> "fail": allele fails criteria (all-inclusive)
+ALT_fail_n=14
+AF_fail: n=14;min=0.0;Q1=0.0;mean=0.005;std=0.01;median=0.0;Q3=0.006;max=0.038
+AC_fail: n=14;min=0;Q1=0.0;mean=2.1;std=4.189;median=0.0;Q3=1.75;max=14
+DP_fail: n=14;min=52;Q1=867.0;mean=1469.8;std=796.603;median=1969.5;Q3=1980.75;max=1999
+
+==> "failZeroAC": allele fails when 0 reads support it (REF or ALT)
+ALT_failZeroAC_n=9
+AF_failZeroAC: n=9;min=0.0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0.0
+AC_failZeroAC: n=9;min=0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0
+DP_failZeroAC: n=9;min=159;Q1=1941.0;mean=1763.0;std=567.713;median=1971.0;Q3=1980.0;max=1991
+
+==> "failDP": read depth (coverage) fails --min_DP
+ALT_failDP_n=0
+
+==> "failAC": allele count (REF or ALT) fails --min_AC
+ALT_failAC_n=0
+
+==> "failMinAF": allele frequency (REF or ALT) fails --min_AF
+ALT_failMinAF_n=0
+
+==> "failMaxAF": allele frequency (REF or ALT) fails --max_AF
+ALT_failMaxAF_n=0
+
+==> "failINFO": fails one or more of the user-provided --INFO_rules
+ALT_failINFO_n=0
+
+==> "failsample": fails one or more of the user-provided --sample_rules
+ALT_failsample_n=0
+
+==> "failFDR": fails --FDR_cutoff
+ALT_failFDR_n=14
+AF_failFDR: n=14;min=0.0;Q1=0.0;mean=0.005;std=0.01;median=0.0;Q3=0.006;max=0.038
+AC_failFDR: n=14;min=0;Q1=0.0;mean=2.1;std=4.189;median=0.0;Q3=1.75;max=14
+DP_failFDR: n=14;min=52;Q1=867.0;mean=1469.8;std=796.603;median=1969.5;Q3=1980.75;max=1999
+
+==> "fixedALT": site fixed for a particular ALT allele (100% non-reference)
+ALT_fixedALT_n=54
+AF_fixedALT: n=54;min=0.923;Q1=1.0;mean=0.993;std=0.017;median=1.0;Q3=1.0;max=1.0
+AC_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+DP_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+
+=====================> MAJOR ALLELES (1 or more per record) <====================
+MAJOR_n=558
+MAJOR_pass=558=100.0%
+MAJOR_fail=0=0.0%
+MAJOR_failZeroAC=0=0.0%
+MAJOR_failDP=0=0.0%
+MAJOR_failAC=0=0.0%
+MAJOR_failMinAF=0=0.0%
+MAJOR_failMaxAF=0=0.0%
+MAJOR_failINFO=0=0.0%
+MAJOR_failsample=0=0.0%
+MAJOR_failFDR=0=0.0%
+MAJOR_fixedREF=0=0.0%
+MAJOR_fixedALT=54=9.7%
+
+==> "pass": allele passes all criteria
+MAJOR_pass_n=558
+AF_pass: n=558;min=0.503;Q1=0.935;mean=0.937;std=0.068;median=0.96;Q3=0.969;max=1.0
+AC_pass: n=558;min=17;Q1=1794.0;mean=1746.9;std=428.227;median=1903.0;Q3=1931.0;max=1998
+DP_pass: n=558;min=17;Q1=1980.0;mean=1857.0;std=437.487;median=1994.0;Q3=1998.0;max=2000
+
+==> "fail": allele fails criteria (all-inclusive)
+MAJOR_fail_n=0
+
+==> "failZeroAC": allele fails when 0 reads support it (REF or ALT)
+MAJOR_failZeroAC_n=0
+
+==> "failDP": read depth (coverage) fails --min_DP
+MAJOR_failDP_n=0
+
+==> "failAC": allele count (REF or ALT) fails --min_AC
+MAJOR_failAC_n=0
+
+==> "failMinAF": allele frequency (REF or ALT) fails --min_AF
+MAJOR_failMinAF_n=0
+
+==> "failMaxAF": allele frequency (REF or ALT) fails --max_AF
+MAJOR_failMaxAF_n=0
+
+==> "failINFO": fails one or more of the user-provided --INFO_rules
+MAJOR_failINFO_n=0
+
+==> "failsample": fails one or more of the user-provided --sample_rules
+MAJOR_failsample_n=0
+
+==> "failFDR": fails --FDR_cutoff
+MAJOR_failFDR_n=0
+
+==> "fixedREF": site fixed for the REF allele (100% reference)
+MAJOR_fixedREF_n=0
+
+==> "fixedALT": site fixed for a particular ALT allele (100% non-reference)
+MAJOR_fixedALT_n=54
+AF_fixedALT: n=54;min=0.923;Q1=1.0;mean=0.993;std=0.017;median=1.0;Q3=1.0;max=1.0
+AC_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+DP_fixedALT: n=54;min=17;Q1=158.25;mean=1207.6;std=863.757;median=1927.5;Q3=1987.75;max=1998
+
+=====================> MINOR ALLELES (1 or more per record) <====================
+MINOR_n=590
+MINOR_pass=516=87.5%
+MINOR_fail=74=12.5%
+MINOR_failZeroAC=60=10.2%
+MINOR_failDP=0=0.0%
+MINOR_failAC=0=0.0%
+MINOR_failMinAF=0=0.0%
+MINOR_failMaxAF=0=0.0%
+MINOR_failINFO=0=0.0%
+MINOR_failsample=0=0.0%
+MINOR_failFDR=74=12.5%
+MINOR_fixedREF=0=0.0%
+MINOR_fixedALT=0=0.0%
+
+==> "pass": allele passes all criteria
+MINOR_pass_n=516
+AF_pass: n=516;min=0.012;Q1=0.032;mean=0.067;std=0.066;median=0.042;Q3=0.068;max=0.497
+AC_pass: n=516;min=8;Q1=63.0;mean=119.0;std=96.902;median=82.0;Q3=128.25;max=598
+DP_pass: n=516;min=120;Q1=1984.0;mean=1924.7;std=286.273;median=1995.0;Q3=1999.0;max=2000
+
+==> "fail": allele fails criteria (all-inclusive)
+MINOR_fail_n=74
+AF_fail: n=74;min=0.0;Q1=0.0;mean=0.005;std=0.014;median=0.0;Q3=0.0;max=0.077
+AC_fail: n=74;min=0;Q1=0.0;mean=0.8;std=2.311;median=0.0;Q3=0.0;max=14
+DP_fail: n=74;min=17;Q1=159.0;mean=1294.8;std=851.76;median=1965.5;Q3=1987.0;max=1999
+
+==> "failZeroAC": allele fails when 0 reads support it (REF or ALT)
+MINOR_failZeroAC_n=60
+AF_failZeroAC: n=60;min=0.0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0.0
+AC_failZeroAC: n=60;min=0;Q1=0.0;mean=0.0;std=0.0;median=0.0;Q3=0.0;max=0
+DP_failZeroAC: n=60;min=17;Q1=1062.5;mean=1497.4;std=759.303;median=1972.0;Q3=1988.0;max=1998
+
+==> "failDP": read depth (coverage) fails --min_DP
+MINOR_failDP_n=0
+
+==> "failAC": allele count (REF or ALT) fails --min_AC
+MINOR_failAC_n=0
+
+==> "failMinAF": allele frequency (REF or ALT) fails --min_AF
+MINOR_failMinAF_n=0
+
+==> "failMaxAF": allele frequency (REF or ALT) fails --max_AF
+MINOR_failMaxAF_n=0
+
+==> "failINFO": fails one or more of the user-provided --INFO_rules
+MINOR_failINFO_n=0
+
+==> "failsample": fails one or more of the user-provided --sample_rules
+MINOR_failsample_n=0
+
+==> "failFDR": fails --FDR_cutoff
+MINOR_failFDR_n=74
+AF_failFDR: n=74;min=0.0;Q1=0.0;mean=0.005;std=0.014;median=0.0;Q3=0.0;max=0.077
+AC_failFDR: n=74;min=0;Q1=0.0;mean=0.8;std=2.311;median=0.0;Q3=0.0;max=14
+DP_failFDR: n=74;min=17;Q1=159.0;mean=1294.8;std=851.76;median=1965.5;Q3=1987.0;max=1999
+
+==> "fixedREF": site fixed for the REF allele (100% reference)
+MINOR_fixedREF_n=0
+
+==> "fixedALT": site fixed for a particular ALT allele (100% non-reference)
+MINOR_fixedALT_n=0
+
+# -----------------------------------------------------------------------------
