@@ -121,6 +121,9 @@ def get_args() -> Args:
         description='Script to dynamically filter within-sample (pooled sequencing) variants to control for a FDR',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    # Rename "optional" arguments
+    parser._optionals.title = 'Named arguments'
+
     # -------------------------------------------------------------------------
     # REQUIRED
     # parser.add_argument('-v',
