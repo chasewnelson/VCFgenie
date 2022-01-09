@@ -361,8 +361,9 @@ def get_args() -> Args:
 # -----------------------------------------------------------------------------
 def main() -> None:
     """ The best criticism of the bad is the practice of the better """
+
     # -------------------------------------------------------------------------
-    # gather arguments
+    # GATHER arguments
     args = get_args()
     VCF_files = args.VCF_files
     error_per_site = args.error_per_site
@@ -388,8 +389,8 @@ def main() -> None:
     print(f'VCFgenie.py - dynamically filter within-sample (pooled sequencing) variants to control for a FDR')
     print('# -----------------------------------------------------------------------------')
     print('For DOCUMENTATION, run:')
-    print('\t$ VCFgenie.py --help')
-    print('\t$ pydoc ./VCFgenie.py')
+    print('    $ VCFgenie.py --help')
+    print('    $ pydoc ./VCFgenie.py')
     print('# -----------------------------------------------------------------------------')
     print()
 
