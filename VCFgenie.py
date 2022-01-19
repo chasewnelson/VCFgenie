@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 """
-Purpose: Script to filter within-sample (pooled sequencing) variants for FDR
+Purpose: Dynamically filter within-sample (pooled sequencing) variants for FDR
 Author : Chase W. Nelson <chase.nelson@nih.gov>
 Cite   : https://github.com/chasewnelson/SARS-CoV-2-ORF3d
 Date   : 2021-12-04
@@ -87,6 +87,20 @@ from collections import defaultdict
 # from pprint import pprint
 from scipy.stats import binom
 from typing import Dict, List, NamedTuple, TextIO
+
+usage = """# -----------------------------------------------------------------------------
+VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control for a FDR
+# -----------------------------------------------------------------------------
+For DOCUMENTATION, run:
+    $ VCFgenie.py --help
+    $ pydoc ./VCFgenie.py
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+EXAMPLE:
+    $ VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --VCF_files example.vcf > example.out
+# -----------------------------------------------------------------------------
+"""
 
 
 class Args(NamedTuple):
@@ -316,7 +330,7 @@ def get_args() -> Args:
     # OPTIONAL  # TODO AF_key and DP_key can only be validated later while examining VCF files
     if os.path.isdir(args.out_dir):
         # sys.exit(f'\n### ERROR: out_dir "{args.out_dir}" already exists')
-        parser.error(f'\n### ERROR: out_dir "{args.out_dir}" already exists')
+        parser.error(f'\n### ERROR: out_dir="{args.out_dir}" already exists')
     else:
         os.makedirs(args.out_dir)
 
@@ -388,18 +402,12 @@ def main() -> None:
 
     # -------------------------------------------------------------------------
     # INITIALIZE OUTPUT AND LOG
-    print('# -----------------------------------------------------------------------------')
-    print(f'VCFgenie.py - dynamically filter within-sample (pooled sequencing) variants to control for a FDR')
-    print('# -----------------------------------------------------------------------------')
-    print('For DOCUMENTATION, run:')
-    print('    $ VCFgenie.py --help')
-    print('    $ pydoc ./VCFgenie.py')
-    print('# -----------------------------------------------------------------------------')
-    print()
+    print(usage)
 
     print('# -----------------------------------------------------------------------------')
     # print('LOG')
-    print(f'LOG:wd="{os.getcwd()}"')
+    print(f'LOG:command="{" ".join(sys.argv)}"')
+    print(f'LOG:cwd="{os.getcwd()}"')
     print(f'LOG:error_per_site="{error_per_site}"')
     print(f'LOG:seq_len="{seq_len}"')
     print(f'LOG:num_samples="{num_samples}"')
@@ -415,7 +423,7 @@ def main() -> None:
     print(f'LOG:max_AF="{max_AF}"')
     print(f'LOG:min_DP="{min_DP}"')
     print(f'LOG:INFO_rules="{INFO_rules}"')
-    print(f'LOG:sample_rules="{sample_rules}"')
+    print(f'LOG:sample_rules="{sample_rules}"', flush=True)
     print()
 
     # WARN about overwriting
@@ -437,46 +445,46 @@ def main() -> None:
     # Prepare regex
 
     # user-supplied rules
-    rule_regex = re.compile(r'(\w+)([!=<>]+)([.\d]+)')
+    re_rule = re.compile(r'(\w+)([!=<>]+)([.\d]+)')
 
     # VCF file regex
     # NOTE: DP and AF are sufficient because the allele count, so inconsistently coded across VCFs, can simply be inferred
 
     # VCF_line_pattern = r"([\w\_\.]+)\t(\d+)\t([^\s]+)\t([acgtuACGTU]+)\t([acgtuACGTU]+)\t(\d+)\t(\w+)\t([\w\=\;\.\,]+)"
-    # VCF_INFO_regex = re.compile(VCF_INFO_pattern)
+    # re_VCF_INFO = re.compile(VCF_INFO_pattern)
 
-    VCF_INFO_regex = re.compile(r'(\w+)=([\w\d/,.\-<>]+)')
+    re_VCF_INFO = re.compile(r'(\w+)=([\w\d/,.\-<>]+)')
 
     # VCF_SB_pattern = r"SB=\d+" # SB=0
-    # VCF_SB_regex = re.compile(VCF_SB_pattern)
+    # re_VCF_SB = re.compile(VCF_SB_pattern)
     # VCF_DP4_grppattern = r"DP4=(\d+),(\d+),(\d+),(\d+)" # DP4=27,235,0,4
     # VCF_DP4_grpregex = re.compile(VCF_DP4_pattern)
 
     # VCF_DP_pattern = r"DP=\d+"  # DP=266
-    # VCF_DP_regex = re.compile(VCF_DP_pattern)
+    # re_VCF_DP = re.compile(VCF_DP_pattern)
     # VCF_AF_pattern = r"AF=[\d\.]+"  # AF=0.015038
-    # VCF_AF_regex = re.compile(r'AF=[\d.,]+')
+    # re_VCF_AF = re.compile(r'AF=[\d.,]+')
 
     # Data regex
-    # datum_regex = re.compile(r'[\d/.\-]+')
-    # AF_datum_regex = re.compile(r'([\s\t;])AF=[\d.NA]+')
-    # DP_datum_regex = re.compile(r'([\s\t;])DP=[\d.NA]+')
-    # CSV_datum_regex = re.compile(r'[,\d\w.\-]+')
+    # re_datum = re.compile(r'[\d/.\-]+')
+    # re_AF_datum = re.compile(r'([\s\t;])AF=[\d.NA]+')
+    # re_DP_datum = re.compile(r'([\s\t;])DP=[\d.NA]+')
+    # re_CSV_datum = re.compile(r'[,\d\w.\-]+')
 
     # VCF metadata block regex
-    # metadata_block_regex = re.compile(r'^##(\w+)=.+$')
+    # re_metadata_block = re.compile(r'^##(\w+)=.+$')
     # ##INFO=<ID=H2,Number=0,Type=Flag,Description="HapMap2 membership">
-    # VCF_FORMAT_metadata_regex = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)">$')
-    VCF_INFO_metadata_regex = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)".*>$')
+    # re_VCF_FORMAT_metadata = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)">$')
+    re_VCF_INFO_metadata = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)".*>$')
     #TODO update regex for recording Source and Version:
     # ##INFO=<ID=ID,Number=number,Type=type,Description="description",Source="source",Version="version">
 
     # non-float, non-int regex
-    # non_int_regex = re.compile(r'\D')  # not a digit or dot or minus sign
-    # non_float_regex = re.compile(r'^\d^.^-')  # not a digit or dot or minus sign
+    # re_non_int = re.compile(r'\D')  # not a digit or dot or minus sign
+    # re_non_float = re.compile(r'^\d^.^-')  # not a digit or dot or minus sign
 
     # -------------------------------------------------------------------------
-    # PARSE INFO_rules and sample_rules into LISTS of 3-TUPLES using rule_regex
+    # PARSE INFO_rules and sample_rules into LISTS of 3-TUPLES using re_rule
     # rule_FILTER_metadata: List[str] = []
     INFO_rule_FILTER_dict: Dict[str, List[str]] = defaultdict(list)
     sample_rule_FILTER_dict: Dict[str, List[str]] = defaultdict(list)
@@ -487,8 +495,8 @@ def main() -> None:
         INFO_rule_list = INFO_rules.split(',')
 
         for i, INFO_rule in enumerate(INFO_rule_list):
-            # key, operator, value = rule_regex.match(INFO_rule).groups()
-            INFO_rule_match = rule_regex.match(INFO_rule)
+            # key, operator, value = re_rule.match(INFO_rule).groups()
+            INFO_rule_match = re_rule.match(INFO_rule)
 
             if INFO_rule_match is not None:
                 key, operator, value = INFO_rule_match.groups()
@@ -510,12 +518,12 @@ def main() -> None:
         sample_rule_list = sample_rules.split(',')
 
         for i, sample_rule in enumerate(sample_rule_list):
-            # key, operator, value = rule_regex.match(sample_rule).groups()
+            # key, operator, value = re_rule.match(sample_rule).groups()
             # print(f'LOG:sample_rule_{i}:key="{key}",operator="{operator}",value="{value}"')
             # sample_rule_lt.append((key, operator, value))
 
-            # key, operator, value = rule_regex.match(sample_rule).groups()
-            sample_rule_match = rule_regex.match(sample_rule)
+            # key, operator, value = re_rule.match(sample_rule).groups()
+            sample_rule_match = re_rule.match(sample_rule)
 
             if sample_rule_match is not None:
                 key, operator, value = sample_rule_match.groups()
@@ -576,7 +584,7 @@ def main() -> None:
     # -------------------------------------------------------------------------
     # Name VCF files to examine
     print('# -----------------------------------------------------------------------------')
-    # file_ext_regex = re.compile(r'.\w+$')
+    # re_file_ext = re.compile(r'.\w+$')
     print('VCF files to process (output files will have names of the form "<VCF_root_name>_filtered.vcf"):\n' + \
           '[IN_FILE_NAME] -> [OUT_FILE_NAME]')
 
@@ -784,7 +792,7 @@ def main() -> None:
                 # SAVE metadata in the INFO_metadata_dd or FORMAT_metadata_dd
                 # r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)"$'
                 # r'^##( 0 )=<ID=( 1 ),Number=( 2 ),Type=( 3 ),Description="( 4)"$'
-                if match := VCF_INFO_metadata_regex.match(line):
+                if match := re_VCF_INFO_metadata.match(line):
                     if line.startswith("##INFO="):
                         # print(f'INFO_line={line}')
                         grps = match.groups()  # 0-based for groups BUT 1-based if using .sub - hate Python
@@ -793,6 +801,8 @@ def main() -> None:
                         INFO_metadata_dd[ID]['Number'] = grps[2]
                         INFO_metadata_dd[ID]['Type'] = grps[3]
                         INFO_metadata_dd[ID]['Description'] = grps[4]
+
+                        this_outfile_hdl.write(line + "\n")
                     elif line.startswith("##FORMAT="):
                         # print(f'FORMAT_line={line}')
                         grps = match.groups()  # 0 is whole match; groups are 1-based
@@ -891,18 +901,18 @@ def main() -> None:
                 this_FILTER_new_list: List[str] = []
 
                 # ==> INFO <==
-                # this_INFO_regexgroups = VCF_INFO_regex.match(this_INFO)
+                # re_this_INFOgroups = re_VCF_INFO.match(this_INFO)
                 this_INFO_list = this_INFO_rec.split(';')
                 this_INFO_list_keys = list(this_INFO_list)
-                this_INFO_list_keys = [VCF_INFO_regex.sub(r'\1', x) for x in this_INFO_list_keys]
+                this_INFO_list_keys = [re_VCF_INFO.sub(r'\1', x) for x in this_INFO_list_keys]
                 this_INFO_list_values = list(this_INFO_list)
-                this_INFO_list_values = [VCF_INFO_regex.sub(r'\2', x) if '=' in x else None for x in this_INFO_list_values]
+                this_INFO_list_values = [re_VCF_INFO.sub(r'\2', x) if '=' in x else None for x in this_INFO_list_values]
                 this_INFO_data = dict(zip(this_INFO_list_keys, this_INFO_list_values))
-                # this_DP = VCF_DP_regex.search(this_INFO_rec)
+                # this_DP = re_VCF_DP.search(this_INFO_rec)
                 # this_DP = this_INFO_rec[this_DP.start():this_DP.end()]  # AF=0.367003
                 # this_DP = int(this_DP.replace("DP=", ""))
                 # this_INFO_DP = this_INFO_data[DP_key]  # TODO: option later
-                # this_AF_rec = VCF_AF_regex.search(this_INFO_rec)
+                # this_AF_rec = re_VCF_AF.search(this_INFO_rec)
                 # this_AF_rec = this_INFO_rec[this_AF_rec.start():this_AF_rec.end()]  # AF=0.367003; AF=0,1
                 # this_AF_rec = this_AF_rec.replace('AF=', '')
                 # this_INFO_AF = this_INFO_data[AF_key]  # TODO: option later
@@ -929,7 +939,7 @@ def main() -> None:
                 this_sample_list = this_sample_rec.split(':')  # original ORDER maintained
                 # print(f'this_sample_rec={this_sample_rec}')
 
-                # this_SB = VCF_SB_regex.match(this_INFO) # SEARCH INSTEAD
+                # this_SB = re_VCF_SB.match(this_INFO) # SEARCH INSTEAD
                 # this_DP4_grps = VCF_DP4_grpregex.match(this_INFO) # SEARCH INSTEAD
 
                 if len(this_FORMAT_list) != len(this_sample_list):
@@ -1045,7 +1055,7 @@ def main() -> None:
 
                 # -------------------------------------------------------------
                 # LOOP AND TEST ALL ALLELES, includes REF (1) and ALT (1 or more)
-                allele_decision_dl: Dict[str, List(str)] = defaultdict(list)
+                allele_decision_dl: Dict[str, List[str]] = defaultdict(list)
                 for allele, AC in allele_AC_dict.items():
                     this_ALLELE_n += 1
                     total_ALLELE_n += 1
@@ -1176,8 +1186,8 @@ def main() -> None:
                                     # # DETERMINE data types for values
                                     # # Ex/ '37' > '5' is *False*, so make sure we're using correct type
                                     # # this_sample_data_value
-                                    # if non_int_regex.search(this_sample_data_value):
-                                    #     if non_float_regex.search(this_sample_data_value):
+                                    # if re_non_int.search(this_sample_data_value):
+                                    #     if re_non_float.search(this_sample_data_value):
                                     #         this_sample_data_value = str(this_sample_data_value)
                                     #     else:
                                     #         this_sample_data_value = float(this_sample_data_value)
@@ -1185,8 +1195,8 @@ def main() -> None:
                                     #     this_sample_data_value = int(this_sample_data_value)
                                     #
                                     # # value
-                                    # if non_int_regex.search(value):
-                                    #     if non_float_regex.search(value):
+                                    # if re_non_int.search(value):
+                                    #     if re_non_float.search(value):
                                     #         value = str(value)
                                     #     else:
                                     #         value = float(value)
@@ -1562,7 +1572,7 @@ def main() -> None:
                     # line_mod_list = line.split('\t')  # TODO write VCF rec now or later instead?
 
                     # Modify INFO
-                    # line_mod_list[7] = datum_regex.sub('.', line_mod_list[7])
+                    # line_mod_list[7] = re_datum.sub('.', line_mod_list[7])
                     # line_mod_list[7] = f'AF=1;DP={this_DP}'  # TODO write VCF rec now or later instead?
                     # line_mod_list[7] = line_mod_list[7].replace('AF=NA', 'AF=1')  # no
                     # line_mod_list[7] = line_mod_list[7].replace('DP=NA', f'DP={this_DP}')  # no
@@ -1571,14 +1581,14 @@ def main() -> None:
                     #     line_mod_list[7] = line_mod_list[7] + ';MULTIALLELIC'
 
                     # Modify SAMPLE
-                    # line_mod_list[9] = datum_regex.sub('.', line_mod_list[9])  # TODO write VCF rec now or later instead? add undefined
+                    # line_mod_list[9] = re_datum.sub('.', line_mod_list[9])  # TODO write VCF rec now or later instead? add undefined
 
                     # rejoin list into string
                     # line_revised = '\t'.join(line_mod_list)  # TODO write VCF rec now or later instead?
 
                     # # re-insert modified AF and DP only
-                    # line_revised = AF_datum_regex.sub(r'\1AF=1', line_revised)
-                    # line_revised = DP_datum_regex.sub(r'\1DP=' + str(this_DP), line_revised)
+                    # line_revised = re_AF_datum.sub(r'\1AF=1', line_revised)
+                    # line_revised = re_DP_datum.sub(r'\1DP=' + str(this_DP), line_revised)
 
                     # WRITE MODIFIED LINE
                     # this_outfile_hdl.write(line_revised + "\n")  # TODO write VCF rec now or later instead?
@@ -1993,6 +2003,11 @@ def main() -> None:
                  f'{sorted(decision_choices)}\n')
     """
     print('# -----------------------------------------------------------------------------')
+
+    # -------------------------------------------------------------------------
+    # DONE message
+    print('\n# -----------------------------------------------------------------------------')
+    print('DONE')
 
 
 # -----------------------------------------------------------------------------
