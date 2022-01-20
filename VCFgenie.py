@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 """
-Purpose: Dynamically filter within-sample (pooled sequencing) variants for FDR
+Purpose: Dynamically filter within-sample (pooled sequencing) variants to control false-positive count
 Author : Chase W. Nelson <chase.nelson@nih.gov>
 Cite   : https://github.com/chasewnelson/SARS-CoV-2-ORF3d
 Date   : 2021-12-04
@@ -44,7 +44,7 @@ Details: The script applies a dynamic (site-by-site) filter using the binomial
         n = total reads
         p = error rate / 3
         x = number of reads of allele
-        FDR cutoff = (1 - binom.cdf(x - 1, n, p)) * seq_len * num_samples
+        FP cutoff = (1 - binom.cdf(x - 1, n, p)) * seq_len * num_samples
 
     Note that x - 1 is used because we subtract the cumulative probability
         BEFORE the given number of variants.
@@ -67,7 +67,7 @@ Details: The script applies a dynamic (site-by-site) filter using the binomial
             -failMaxAF = allele frequency (whether REF or ALT) fails max_AF
             -failINFO: one or more of the user-provided INFO_rules fails
             -failsample: one or more of the user-provided sample_rules fails
-            -failFDR = allele fails FDR_cutoff
+            -failFP = allele fails FP_cutoff
         -pass = allele passes all criteria
 
 
@@ -89,7 +89,7 @@ from scipy.stats import binom
 from typing import Dict, List, NamedTuple, TextIO
 
 usage = """# -----------------------------------------------------------------------------
-VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control for a FDR
+VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control false-positive count
 # -----------------------------------------------------------------------------
 For DOCUMENTATION, run:
     $ VCFgenie.py --help
@@ -98,7 +98,7 @@ For DOCUMENTATION, run:
 
 # -----------------------------------------------------------------------------
 EXAMPLE:
-    $ VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --VCF_files example.vcf > example.out
+    $ VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --VCF_files example.vcf > example.out
 # -----------------------------------------------------------------------------
 """
 
@@ -110,7 +110,7 @@ class Args(NamedTuple):
     error_per_site: float
     seq_len: int
     num_samples: int
-    FDR_cutoff: float
+    FP_cutoff: float
     out_dir: str  # OPTIONAL
     AC_key: str  # OPTIONAL
     AC_key_new: str  # OPTIONAL
@@ -132,7 +132,7 @@ def get_args() -> Args:
     # TODO: can a failure print the help documentation?
 
     parser = argparse.ArgumentParser(
-        description='Script to dynamically filter within-sample (pooled sequencing) variants to control for a FDR',
+        description='Dynamically filter within-sample (pooled sequencing) variants to control false-positive count',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Rename "optional" arguments
@@ -188,9 +188,9 @@ def get_args() -> Args:
                         type=int)
 
     parser.add_argument('-f',
-                        '--FDR_cutoff',
+                        '--FP_cutoff',
                         metavar='float',
-                        help='analysis-wide false discovery rate (FDR) cutoff [REQUIRED]',
+                        help='analysis-wide false-positive (FP) count cutoff [REQUIRED]',
                         required=True,
                         type=float)
 
@@ -324,8 +324,8 @@ def get_args() -> Args:
     if args.num_samples <= 0 or not args.num_samples:
         parser.error(f'\n### ERROR: num_samples "{args.num_samples}" must be > 0')
 
-    if args.FDR_cutoff <= 0 or not args.FDR_cutoff:
-        parser.error(f'\n### ERROR: FDR_cutoff "{args.FDR_cutoff}" must be > 0')
+    if args.FP_cutoff <= 0 or not args.FP_cutoff:
+        parser.error(f'\n### ERROR: FP_cutoff "{args.FP_cutoff}" must be > 0')
 
     # OPTIONAL  # TODO AF_key and DP_key can only be validated later while examining VCF files
     if os.path.isdir(args.out_dir):
@@ -360,7 +360,7 @@ def get_args() -> Args:
                 error_per_site=args.error_per_site,
                 seq_len=args.seq_len,
                 num_samples=args.num_samples,
-                FDR_cutoff=args.FDR_cutoff,
+                FP_cutoff=args.FP_cutoff,
                 out_dir=args.out_dir,
                 AC_key=args.AC_key,
                 AC_key_new=args.AC_key_new,
@@ -386,7 +386,7 @@ def main() -> None:
     error_per_site = args.error_per_site
     seq_len = args.seq_len
     num_samples = args.num_samples
-    FDR_cutoff = args.FDR_cutoff
+    FP_cutoff = args.FP_cutoff
     out_dir = args.out_dir  # optional
     AC_key = args.AC_key  # optional
     AC_key_new = args.AC_key_new  # optional
@@ -411,7 +411,7 @@ def main() -> None:
     print(f'LOG:error_per_site="{error_per_site}"')
     print(f'LOG:seq_len="{seq_len}"')
     print(f'LOG:num_samples="{num_samples}"')
-    print(f'LOG:FDR_cutoff="{FDR_cutoff}"')
+    print(f'LOG:FP_cutoff="{FP_cutoff}"')
     print(f'LOG:out_dir="{out_dir}"')
     print(f'LOG:AC_key="{AC_key}"')
     print(f'LOG:AC_key_new="{AC_key_new}"')
@@ -437,9 +437,9 @@ def main() -> None:
     # Initialize sets for later use
     operator_choices = ('==', '!=', '<', '<=', '>=', '>')
     decision_choices = ('pass',
-                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFDR',
+                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP',
                         'fixedREF', 'fixedALT',)
-    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFDR')
+    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP')
 
     # -------------------------------------------------------------------------
     # Prepare regex
@@ -570,7 +570,7 @@ def main() -> None:
         'failMaxAF': 'allele frequency (REF or ALT) fails --max_AF',
         'failINFO': 'fails one or more of the user-provided --INFO_rules',
         'failsample': 'fails one or more of the user-provided --sample_rules',
-        'failFDR': 'fails --FDR_cutoff',
+        'failFP': 'fails --FP_cutoff',
         # 'failToFixedALT': 'failing minor allele matched REF; converted to fixed ALT allele',
         'pass': 'allele passes all criteria'
     }
@@ -724,7 +724,7 @@ def main() -> None:
         # new_FILTER_lines = f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' + \
         #                    f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' + \
         #                    f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' + \
-        #                    f'##FILTER=<ID=FDR_cutoff,Description="Analysis-wide false discovery rate (FDR) cutoff: {FDR_cutoff}">\n' + \
+        #                    f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false discovery rate (FP) cutoff: {FP_cutoff}">\n' + \
         #                    f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
         #                    f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support minor allele): {min_AC}">\n' + \
         #                    f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">'
@@ -733,7 +733,7 @@ def main() -> None:
         new_metadata_lines = f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' + \
                              f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' + \
                              f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' + \
-                             f'##FILTER=<ID=FDR_cutoff,Description="Analysis-wide false discovery rate (FDR) cutoff: {FDR_cutoff}">\n' + \
+                             f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false-positive (FP) count cutoff: {FP_cutoff}">\n' + \
                              f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
                              f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' + \
                              f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' + \
@@ -742,8 +742,8 @@ def main() -> None:
         for new_FILTER_line in new_FILTER_lines:
             new_metadata_lines += f'{new_FILTER_line}\n'
 
-        new_metadata_lines += f'##INFO=<ID=DECISION,Number=A,Type=String,Description="The decision made to yield its status as PASS or FAIL">\n' + \
-                              f'##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the allele is a PASS or FAIL">\n' + \
+        new_metadata_lines += f'##INFO=<ID=DECISION,Number=.,Type=String,Description="The decision(s) made to yield STATUS of PASS and/or FAIL">\n' + \
+                              f'##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the ALT allele(s) is a PASS or FAIL">\n' + \
                               f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="The site is multiallelic (more than one ALT allele)">\n' + \
                               f'##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="The REF allele failed to meet the criteria">'
         # Others may be written if encountered below for AC_key_new, AF_key_new, or DP_key_new
@@ -780,9 +780,9 @@ def main() -> None:
         FORMAT_metadata_dd = {}
 
         seen_AC_key_new_FLAG = False
-        new_AC_FORMAT_line = f'##FORMAT=<ID={AC_key_new},Number=A,Type=Integer,Description="ALT allele count after FDR and other processing">'
+        new_AC_FORMAT_line = f'##FORMAT=<ID={AC_key_new},Number=A,Type=Integer,Description="ALT allele count after FP and other processing">'
         seen_AF_key_new_FLAG = False
-        new_AF_FORMAT_line = f'##FORMAT=<ID={AF_key_new},Number=A,Type=Float,Description="ALT allele frequency after FDR and other processing">'
+        new_AF_FORMAT_line = f'##FORMAT=<ID={AF_key_new},Number=A,Type=Float,Description="ALT allele frequency after FP and other processing">'
 
         for line in this_VCF_fh:
             # chomp newline
@@ -1063,8 +1063,8 @@ def main() -> None:
                     # AF for reuse in this loop
                     this_AF = AC / this_DP  # NOTE: this is BEFORE correction, which is what we want
 
-                    # Calculate analysis-wide FDR for this allele count and coverage
-                    FDR_implied = (1 - binom.cdf(AC - 1, this_DP, error_per_site / 3)) * seq_len * num_samples
+                    # Calculate analysis-wide FP for this allele count and coverage
+                    FP_implied = (1 - binom.cdf(AC - 1, this_DP, error_per_site / 3)) * seq_len * num_samples
                     # x - 1 because subtracting everything BEFORE this value (cumulative distribution)
 
                     # ---------------------------------------------------------
@@ -1206,10 +1206,10 @@ def main() -> None:
                             else:  # data_Number is not '1' or 'A'
                                 print(f'### WARNING: no method for implementing rule={rule}, which has Number={data_Number}; will not be implemented')
 
-                    # failFDR: allele FAILS because insufficient reads support it (FDR)
-                    if FDR_implied > FDR_cutoff:
-                        decision_list.append('failFDR')
-                        this_FILTER_new_list.append('FDR')
+                    # failFP: allele FAILS because insufficient reads support it (FP)
+                    if FP_implied > FP_cutoff:
+                        decision_list.append('failFP')
+                        this_FILTER_new_list.append('FP')
 
                     # OTHERWISE PASS
                     if len(decision_list) == 0:  # PASS
@@ -1365,7 +1365,7 @@ def main() -> None:
                                          f';AF="{round(this_AF, 5)}"' + \
                                          f';AC="{AC}"' + \
                                          f';DP="{this_DP}"' + \
-                                         f';FDR="{round(FDR_implied, 5)}"' + \
+                                         f';FP="{round(FP_implied, 5)}"' + \
                                          f';DECISION="{decision}"' + \
                                          f';STATUS="FAIL"'
                             print(out_string)

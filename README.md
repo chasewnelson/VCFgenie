@@ -1,11 +1,11 @@
 <img src="https://github.com/chasewnelson/VCFgenie/blob/main/VCFgenie_logo.png?raw=true" title="VCFgenie logo by Mitch Lin" alt="VCFgenie logo by Mitch Lin" align="middle">
 
 # VCFgenie
-**VCFgenie** is a Python program for dynamic (site-by-site) processing of within-sample (pooled-sequencing) variants in a VCF file. The program implements arbitrarily complex filtering rules using any keys in the `INFO` or `sample` columns, and controls for a user-provided false-discovery rate.
+**VCFgenie** is a Python program for dynamic (site-by-site) processing of within-sample (pooled-sequencing) variants in a VCF file. The program implements arbitrarily complex filtering rules using any keys in the `INFO` or `sample` columns, and controls for a user-provided false-positive count.
 
 The program is executed at the Unix command line or Mac Terminal as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --VCF_files example.vcf > example.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --VCF_files example.vcf > example.out
 
 Find specific [examples](#examples) below. 
 
@@ -13,7 +13,7 @@ Find specific [examples](#examples) below.
 
 * [Description](#description)
 * [How it Works](#how-it-works)
-* [False Discovery Rate Method](#false-discovery-rate-method)
+* [False-Positive Count Method](#false-positive-count-method)
 * [Allele Processing Rules](#allele-processing-rules)
 * [Options](#options)
 * [Examples](#examples)
@@ -29,7 +29,7 @@ Find specific [examples](#examples) below.
 
 VCF files are the result of single nucleotide polymorphism (SNP) 'calling', for which numerous tools exist, including Freebayes, Genome Analysis Tool Kit (GATK), Ion Proton Variant Caller (TVC), Intrahost Variant Analysis of Replicates (iVar), LowFreq, Samtools mpileup, and VarScan 2.
 
-After SNP calling, various tools and libraries also exist for downstream analysis and filtering of VCF files. However, current options are designed for filtering but not modifying VCF records using a predefined set of relevant parameters; treat reference (REF) and alternative (ALT) alleles inconsistently; or do not provide options for handling sites that are multiallelic (i.e., more than one ALT allele). Thus, there is a need for a tool that implements arbitrary user-provided rules to both filter and modify records, handle failing REF and multiple ALT alleles consistently, and control for a false-discovery rate among multiple samples, specifically in a way that is reproducible (i.e., no custom code needed). VCFgenie was written to meet this need, and allows the aforementioned steps to be performed before downstream (e.g., evolutionary and population genetic) analyses that rely on high-confidence polymorphism data.
+After SNP calling, various tools and libraries also exist for downstream analysis and filtering of VCF files. However, current options are designed for filtering but not modifying VCF records using a predefined set of relevant parameters; treat reference (REF) and alternative (ALT) alleles inconsistently; or do not provide options for handling sites that are multiallelic (i.e., more than one ALT allele). Thus, there is a need for a tool that implements arbitrary user-provided rules to both filter and modify records, handle failing REF and multiple ALT alleles consistently, and control for a false-positive count among multiple samples, specifically in a way that is reproducible (i.e., no custom code needed). VCFgenie was written to meet this need, and allows the aforementioned steps to be performed before downstream (e.g., evolutionary and population genetic) analyses that rely on high-confidence polymorphism data.
 
 ## <a name="how-it-works"></a>How it Works
 VCFgenie is written in Python 3.8. Its dependencies include the following libraries, which the user may need to install (e.g., using `pip` or `conda`):
@@ -56,11 +56,11 @@ Thus, to determine allele frequencies and coverage, VCFgenie currently analyzes 
 
 Additional user-provided filtering criteria may be specified using any key/value pairs present in the `INFO` or `FORMAT`/`sample` columns, described in [Options](#options). Both REF and ALT alleles can fail if they do not meet a criterion, and can fail multiple criteria. Summary statistics reported in the output may therefore include redundant data, e.g., the same allele may be classified as `failAF` and `failDP` (see [Allele Processing Rules](allele-processing-rules)).
 
-## <a name="false-discovery-rate-method"></a>False Discovery Rate Method
+## <a name="false-positive-count-method"></a>False-Positive Count Method
 
-In addition to simple filtering rules, VCFgenie implements a dynamic (site-by-site) binomial false-discovery rate (FDR) filter based on the <a target="_blank" rel="noopener noreferrer" href="https://github.com/chasewnelson/SARS-CoV-2-ORF3d#figure-8">filter_VCF.py</a> script described by <a target="_blank" rel="noopener noreferrer" href="https://elifesciences.org/articles/59633">Nelson et al. (2020)</a>.
+In addition to simple filtering rules, VCFgenie implements a dynamic (site-by-site) binomial false-positive (FP) count filter based on the <a target="_blank" rel="noopener noreferrer" href="https://github.com/chasewnelson/SARS-CoV-2-ORF3d#figure-8">filter_VCF.py</a> script described by <a target="_blank" rel="noopener noreferrer" href="https://elifesciences.org/articles/59633">Nelson et al. (2020)</a>.
 
-The method is **dynamic** because each site is evaluated separately, with results depending on that site's `DP` and each allele's `AC`. The method is **binomial** because, given a sequencing error rate per base (`p`) and coverage (`DP`), it determines the probability that each allele's `AC` (`x`) could have resulted from sequencing error alone. Finally, the method controls for a **false-discovery rate** defined as a user-provided maximum acceptable number of false variant calls, rejecting any variants that are too likely the result of error alone. This false discovery rate is a function of four parameters, each of which must or can be supplied by the user (see [Options](#options)):
+The method is **dynamic** because each site is evaluated separately, with results depending on that site's `DP` and each allele's `AC`. The method is **binomial** because, given a sequencing error rate per base (`p`) and coverage (`DP`), it determines the probability that each allele's `AC` (`x`) could have resulted from sequencing error alone. Finally, the method controls for a **false-positive count** defined as a user-provided maximum acceptable number of false variant calls, rejecting any variants that are too likely the result of error alone. This false-positive count is a function of four parameters, each of which must or can be supplied by the user (see [Options](#options)):
 
 1. `--error_per_site`: the given sequencing technology's error rate per base
 2. `--DP_key`: the read depth (coverage) at a site (i.e., each **read** is another opportunity for error)
@@ -76,13 +76,13 @@ where:
 	n = read depth (coverage)
 	p = error rate / 3
 	x = allele count (number of reads)
-	FDR cutoff = (1 - binom.cdf(x - 1, n, p)) * seq_len * num_samples
+	FP cutoff = (1 - binom.cdf(x - 1, n, p)) * seq_len * num_samples
 	
 Thus, the method assumes a single nucleotide variant (SNV) model in which all three possible nucleotide errors occur at the same rate. Future instantiations of VCFgenie will allow more complex error models to be specified.
 
-To implement the above method, the user must supply a **FDR cutoff** (`--FDR_cutoff`). For example, one might wish to use an FDR cutoff of 0.05 for applications requiring conservative SNP calling. For other contexts, an FDR cutoff of 1 (a maximum acceptable mean of 1 false variant across the entire analysis) may be acceptable.
+To implement the above method, the user must supply a **FP cutoff** (`--FP_cutoff`). For example, one might wish to use a FP count cutoff of 0.05 for applications requiring conservative SNP calling. For other contexts, an FP count cutoff of 1 (a maximum acceptable mean of 1 false variant across the entire analysis) or more may be acceptable.
 
-Note that the advantage of using the FDR method is that it precludes the need for a fixed, arbitrary `AF` cutoff (although one may still be applied using `--min_AF`).
+Note that the advantage of using the FP method is that it precludes the need for a fixed, arbitrary `AF` cutoff (although one may still be applied using `--min_AF`).
 
 ## <a name="allele-processing-rules"></a>Allele Processing Rules
 
@@ -97,11 +97,11 @@ The following filtering rules are tested:
 5. `failMaxAF`: allele frequency (REF or ALT) fails `--max_AF`
 6. `failINFO`: fails one or more of the user-provided `--INFO_rules`
 7. `failsample`: fails one or more of the user-provided `--sample_rules`
-8. `failFDR`: fails `--FDR_cutoff`
+8. `failFP`: fails `--FP_cutoff`
 
 When appropriate, the following data will be added to the `INFO` column:
 
-1. `DECISION`=(`fixedREF`|`fixedALT`|`fail`|`failZeroAC`|`failDP`|`failAC`|`failAF`|`failINFO`|`failsample`|`failFDR`|`pass`)
+1. `DECISION`=(`fixedREF`|`fixedALT`|`fail`|`failZeroAC`|`failDP`|`failAC`|`failAF`|`failINFO`|`failsample`|`failFP`|`pass`)
 2. `STATUS`=(`PASS`|`FAIL`)
 3. `fixedREF` **[Flag]**: site fixed for the REF allele (100% reference)
 4. `fixedALT` **[Flag]**: site fixed for a particular ALT allele (100% non-reference)
@@ -133,7 +133,7 @@ Call VCFgenie using the following options:
 * `-e`, `--error_per_site` **[float]**: sequencing error rate per site (assumes all nucleotides equally probable)
 * `-L`, `--seq_len` **[int]**: length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides
 * `-n`, `--num_samples` **[int]**: number of samples (VCF files) in full analysis
-* `-f`, `--FDR_cutoff` **[float]**: analysis-wide false discovery rate (FDR) cutoff
+* `-f`, `--FP_cutoff` **[float]**: analysis-wide false-positive (FP) count cutoff
 
 **OPTIONAL:**
 
@@ -156,45 +156,45 @@ Call VCFgenie using the following options:
 
 ### EXAMPLE 1: A Simple Run with Custom AC, AF, and DP Keys
 
-At a minimum, five options are required: `--seq_len`, `--error_per_site`, `--num_samples`, `--FDR_cutoff`, and `--VCF_files`.
+At a minimum, five options are required: `--seq_len`, `--error_per_site`, `--num_samples`, `--FP_cutoff`, and `--VCF_files`.
 
 By default, VCFgenie looks for allele count, allele frequency, and read depth data in the `FORMAT`/`sample` columns using the default data keys `AC`, `AF`, and `DP`, respectivley. If your analysis will **not** use these default data keys, you must provide both the required options and the keys to use for obtaining allele count (`--AC_key`), allele frequency (`--AF_key`), and read depth (`--DP_key`).
 
 Our file `example_A.vcf` uses `FAO`, `AF`, and `FDP` (quality-corrected values) for these keys, so we will specify those as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex1_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example_A.vcf > ex1.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex1_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example_A.vcf > ex1.out
 
 ### EXAMPLE 2: Miniumum AC, AF, and DP Values
 
-If, in addition to the specified FDR cutoff (`--FDR_cutoff`), you wish to specify a minimum acceptable allele count (`--min_AC`), minimum acceptable allele frequency (`--min_AF`), or minimum acceptable read depth (`--min_DP`), they may be specified as follows:
+If, in addition to the specified FP cutoff (`--FP_cutoff`), you wish to specify a minimum acceptable allele count (`--min_AC`), minimum acceptable allele frequency (`--min_AF`), or minimum acceptable read depth (`--min_DP`), they may be specified as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex2_out --AC_key=FAO --AF_key=AF --DP_key=FDP --min_AC=10 --min_AF=0.01 --min_DP=100 --VCF_files example_A.vcf > ex2.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex2_out --AC_key=FAO --AF_key=AF --DP_key=FDP --min_AC=10 --min_AF=0.01 --min_DP=100 --VCF_files example_A.vcf > ex2.out
 
 ### EXAMPLE 3: INFO and Sample-Based Rules
 
 To implement rules based on the `INFO` column, here specifying the value of `STB` (strand bias) must be both greater than 0.5 and less than 0.9, run as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex3a_out --AC_key=FAO --AF_key=AF --DP_key=FDP --INFO_rules="STB>0.5,STB<0.9" --VCF_files example_A.vcf > ex3a.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex3a_out --AC_key=FAO --AF_key=AF --DP_key=FDP --INFO_rules="STB>0.5,STB<0.9" --VCF_files example_A.vcf > ex3a.out
 	
 To implement rules based on the `<sample>` column, here specifying the allele counts for  REF and ALT alleles must be at least 5 on the forward (`FSRF` and `FSAF`) and reverse (`FSRR` and `FSAR`) strands, run as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex3b_out --AC_key=FAO --AF_key=AF --DP_key=FDP --sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5" --VCF_files example_A.vcf > ex3b.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex3b_out --AC_key=FAO --AF_key=AF --DP_key=FDP --sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5" --VCF_files example_A.vcf > ex3b.out
 
 ### EXAMPLE 4: Multiple Input Files
 
 To provide a specific list of more than one VCF files as input, run as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex4a_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example_A.vcf example_B.vcf > ex4a.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex4a_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files example_A.vcf example_B.vcf > ex4a.out
 
 To use **all** VCF files in the working directory as input, run as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FDR_cutoff=0.05 --out_dir=ex4b_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files *.vcf > ex4b.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --out_dir=ex4b_out --AC_key=FAO --AF_key=AF --DP_key=FDP --VCF_files *.vcf > ex4b.out
 
 ### EXAMPLE 5: All Options
 
 To use all currently available options, run as follows:
 
-	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=93 --FDR_cutoff=1 --out_dir=ex5_out --AF_key=AF --AF_key_new==AFN --AC_key=FAO --AC_key_new=FAON --DP_key=FDP --min_DP=100 --min_AC=10 --min_AF=0 --max_AF=1 --INFO_rules="STB>0.5,STB<0.9" --sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5" --VCF_files *.vcf > ex5.out
+	VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=93 --FP_cutoff=1 --out_dir=ex5_out --AF_key=AF --AF_key_new==AFN --AC_key=FAO --AC_key_new=FAON --DP_key=FDP --min_DP=100 --min_AC=10 --min_AF=0 --max_AF=1 --INFO_rules="STB>0.5,STB<0.9" --sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5" --VCF_files *.vcf > ex5.out
 
 ## <a name="output"></a>Output
 
