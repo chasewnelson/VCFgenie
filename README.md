@@ -101,8 +101,8 @@ The following filtering rules are tested:
 
 When appropriate, the following data will be added to the `INFO` column:
 
-1. `DECISION`=(`fixedREF`|`fixedALT`|`fail`|`failZeroAC`|`failDP`|`failAC`|`failAF`|`failINFO`|`failsample`|`failFP`|`pass`)
-2. `STATUS`=(`PASS`|`FAIL`)
+1. `DECISION`=(`fixedREF`|`fixedALT`|`fail`|`failZeroAC`|`failDP`|`failAC`|`failAF`|`failINFO`|`failsample`|`failFP`|`pass`): arbitrarily many flags may be added, because each allele (including REF) may fail for multiple reasons
+2. `STATUS`=(`PASS`|`FAIL`): one flag per ALT allele will be added
 3. `fixedREF` **[Flag]**: site fixed for the REF allele (100% reference)
 4. `fixedALT` **[Flag]**: site fixed for a particular ALT allele (100% non-reference)
 5. `MULTIALLELIC` **[Flag]**: the site is multiallelic (more than one ALT allele)
