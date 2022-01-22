@@ -18,6 +18,7 @@ Find specific [examples](#examples) below.
 * [Options](#options)
 * [Examples](#examples)
 * [Output](#output)
+* [TODO](#todo)
 * [Troubleshooting](#troubleshooting)
 * [Acknowledgments](#acknowledgments)
 * [Citation](#citation)
@@ -238,6 +239,15 @@ Note that:
 
 VCFgenie will produce one `*_filtered.vcf` file for each `*.vcf` file in the working directory, to be placed in `--out_dir` (DEFAULT: `VCFgenie_output`)
 
+## <a name="todo"></a>TODO
+
+Planned additions to VCFgenie include:
+
+1. Implement a flag for overwriting `--AC_key_new` and `--AF_key_new` values in the `INFO` column
+2. Allow an arbitrarily large number of samples (columns >10) to be automatically processed
+3. Allow analyses to be based on INFO column
+4. Implement more complex sequencing error models in the form of user-provided 4x4 (nucleotide) and 64x4 (trinucleotide-context) matrices
+5. Graphical user interface (GUI)
 
 ## <a name="troubleshooting"></a>Troubleshooting
 
