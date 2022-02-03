@@ -129,10 +129,8 @@ class Args(NamedTuple):
 def get_args() -> Args:
     """ Get command-line arguments """
 
-    # TODO: can a failure print the help documentation?
-
     parser = argparse.ArgumentParser(
-        description='Dynamically filter within-sample (pooled sequencing) variants to control false-positive count',
+        description='Dynamically filter within-sample (pooled sequencing) variants to control false-positive count. HELP: VCFgenie.py --help',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Rename "optional" arguments
@@ -142,7 +140,7 @@ def get_args() -> Args:
     # REQUIRED
     # parser.add_argument('-v',
     #                     '--VCF_files',
-    #                     metavar='FILE(S)',
+    #                     metavar='FILE',
     #                     help='input variant call format (VCF) file(s) (*.vcf or *.vcf.gz) [REQUIRED]',
     #                     required=True,  # 'required' won't work for positionals
     #                     nargs='+',
@@ -150,12 +148,12 @@ def get_args() -> Args:
 
     # EXAMPLE PREPARED using:
     # gzip MY_EXAMPLE.vcf
-    # whcih produced: MY_EXAMPLE.vcf.gz
+    # which produced: MY_EXAMPLE.vcf.gz
 
     parser.add_argument('-i',
                         '--VCF_files',
                         # 'VCF_files',
-                        metavar='FILE(S)',
+                        metavar='FILE',
                         help='input variant call format (VCF) file(s) [REQUIRED]',
                         required=True,  # 'required' won't work for positionals
                         nargs='+',
@@ -169,14 +167,16 @@ def get_args() -> Args:
     parser.add_argument('-e',
                         '--error_per_site',
                         metavar='float',
-                        help='sequencing error rate per site (assumes all nucleotides equally probable) [REQUIRED]',
+                        help='error rate per site expected as the result of sample preparation, amplification, and '
+                             'sequencing (assumes all nucleotides equally probable) [REQUIRED]',
                         required=True,
                         type=float)
 
     parser.add_argument('-L',
                         '--seq_len',
                         metavar='int',
-                        help='length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides [REQUIRED]',
+                        help='length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides '
+                             '[REQUIRED]',
                         required=True,
                         type=int)
 
@@ -279,9 +279,9 @@ def get_args() -> Args:
     parser.add_argument('-I',
                         '--INFO_rules',
                         metavar='str',
-                        help='custom rules for filtering based on the INFO column, formatted as a comma-' + \
-                             'separated string in the case of multiple rules; must use keys present in the ' + \
-                             'INFO column, and must use the comparison operators "=="/"!="/"<"/"<="/">="/">" ' + \
+                        help='custom rules for filtering based on the INFO column, formatted as a comma-'
+                             'separated string in the case of multiple rules; must use keys present in the '
+                             'INFO column, and must use the comparison operators "=="/"!="/"<"/"<="/">="/">" '
                              '(e.g., --INFO_rules="STB>0.5,STB<0.9") [OPTIONAL]',
                         required=False,
                         type=str,
@@ -290,9 +290,9 @@ def get_args() -> Args:
     parser.add_argument('-s',
                         '--sample_rules',
                         metavar='str',
-                        help='custom rules for filtering based on the sample column, formatted as a comma-' + \
-                             'separated string in the case of multiple rules; must use keys present in the ' + \
-                             'FORMAT column, and must use the comparison operators "=="/"!="/"<"/"<="/">="/">" ' + \
+                        help='custom rules for filtering based on the sample column, formatted as a comma-'
+                             'separated string in the case of multiple rules; must use keys present in the '
+                             'FORMAT column, and must use the comparison operators "=="/"!="/"<"/"<="/">="/">" '
                              '(e.g., --sample_rules="FSRF>=5,FSRR>=5,FSAF>=5,FSAR>=5") [OPTIONAL]',
                         required=False,
                         type=str,
@@ -434,15 +434,7 @@ def main() -> None:
         print(f'### WARNING: AF_key_new="{AF_key_new}" already exists as AF_key="{AF_key_new}" and will be OVERWRITTEN')
 
     # -------------------------------------------------------------------------
-    # Initialize sets for later use
-    operator_choices = ('==', '!=', '<', '<=', '>=', '>')
-    decision_choices = ('pass',
-                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP',
-                        'fixedREF', 'fixedALT',)
-    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP')
-
-    # -------------------------------------------------------------------------
-    # Prepare regex
+    # REGEX & TUPLES
 
     # user-supplied rules
     re_rule = re.compile(r'(\w+)([!=<>]+)([.\d]+)')
@@ -476,12 +468,19 @@ def main() -> None:
     # ##INFO=<ID=H2,Number=0,Type=Flag,Description="HapMap2 membership">
     # re_VCF_FORMAT_metadata = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)">$')
     re_VCF_INFO_metadata = re.compile(r'^##(\w+)=<ID=(\w+),Number=(\w+),Type=(\w+),Description="(.+)".*>$')
-    #TODO update regex for recording Source and Version:
+    # TODO update regex for recording Source and Version:
     # ##INFO=<ID=ID,Number=number,Type=type,Description="description",Source="source",Version="version">
 
     # non-float, non-int regex
     # re_non_int = re.compile(r'\D')  # not a digit or dot or minus sign
     # re_non_float = re.compile(r'^\d^.^-')  # not a digit or dot or minus sign
+
+    operator_choices = ('==', '!=', '<', '<=', '>=', '>')
+    decision_choices = ('pass',
+                        'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample',
+                        'failFP',
+                        'fixedREF', 'fixedALT',)
+    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP')
 
     # -------------------------------------------------------------------------
     # PARSE INFO_rules and sample_rules into LISTS of 3-TUPLES using re_rule
@@ -542,7 +541,7 @@ def main() -> None:
 
     # VERIFY there are no duplicate keys; may have to deal with this later
     if not set(INFO_rule_FILTER_dict.keys()).isdisjoint(set(sample_rule_FILTER_dict.keys())):
-        sys.exit(f'\n### ERROR: overlapping key(s) utilized for --INFO_rules ({set(INFO_rule_FILTER_dict.keys())}) and ' + \
+        sys.exit(f'\n### ERROR: overlapping key(s) utilized for --INFO_rules ({set(INFO_rule_FILTER_dict.keys())}) and '
                  f'--sample_rules ({set(sample_rule_FILTER_dict.keys())}). Contact author for update')
 
     print()
@@ -555,7 +554,6 @@ def main() -> None:
 
     for key in sample_rule_FILTER_dict:
         new_FILTER_lines.append(f'##FILTER=<ID={key},Description="User-provided sample rule(s): {",".join(sample_rule_FILTER_dict[key])}">')
-
 
     # -------------------------------------------------------------------------
     # INITIALIZE descriptions of summary statistics types
@@ -585,31 +583,31 @@ def main() -> None:
     # Name VCF files to examine
     print('# -----------------------------------------------------------------------------')
     # re_file_ext = re.compile(r'.\w+$')
-    print('VCF files to process (output files will have names of the form "<VCF_root_name>_filtered.vcf"):\n' + \
+    print('VCF files to process (output files will have names of the form "<VCF_root_name>_filtered.vcf"):\n'
           '[IN_FILE_NAME] -> [OUT_FILE_NAME]')
 
     # Store input -> output file names
-    VCF_to_outfile_name_dict: Dict[str, str] = defaultdict(str)
+    VCF_to_outFile_name_dict: Dict[str, str] = defaultdict(str)
     # for this_VCF_file in sorted(VCF_files):
     for this_VCF_file in sorted([this_fh.name for this_fh in VCF_files]):
-        # Create outfile name
-        this_infile_root, this_infile_ext = os.path.splitext(this_VCF_file)  # takes str, includes '.'
+        # Create out_file name
+        this_inFile_root, this_inFile_ext = os.path.splitext(this_VCF_file)  # takes str, includes '.'
 
-        # Input VCF file must end with '.vcf' extension and its implied outfile must not already exist
-        if this_infile_ext == '.vcf':
-            this_outfile_name = this_infile_root + '_filtered.vcf'
+        # Input VCF file must end with '.vcf' extension and its implied out_file must not already exist
+        if this_inFile_ext == '.vcf':
+            this_outFile_name = this_inFile_root + '_filtered.vcf'
 
-            if not os.path.exists(this_outfile_name):
-                VCF_to_outfile_name_dict[this_VCF_file] = this_outfile_name
-                print(f'{this_VCF_file} -> {this_outfile_name}')
+            if not os.path.exists(this_outFile_name):
+                VCF_to_outFile_name_dict[this_VCF_file] = this_outFile_name
+                print(f'{this_VCF_file} -> {this_outFile_name}')
             else:
                 sys.exit(f'\n### ERROR: output VCF file {this_VCF_file} already exists\n')
-        # elif this_infile_ext == '.gz':
-        #     this_outfile_name = this_infile_root + '.gz_filtered.vcf'
+        # elif this_inFile_ext == '.gz':
+        #     this_outFile_name = this_inFile_root + '.gz_filtered.vcf'
         #
-        #     if not os.path.exists(this_outfile_name):
-        #         VCF_to_outfile_name_dict[this_VCF_file] = this_outfile_name
-        #         print(f'{this_VCF_file} -> {this_outfile_name}')
+        #     if not os.path.exists(this_outFile_name):
+        #         VCF_to_outFile_name_dict[this_VCF_file] = this_outFile_name
+        #         print(f'{this_VCF_file} -> {this_outFile_name}')
         #     else:
         #         sys.exit(f'\n### ERROR: output VCF file {this_VCF_file} already exists\n')
         else:
@@ -617,7 +615,6 @@ def main() -> None:
             sys.exit(f'\n### ERROR: input VCF file {this_VCF_file} must end with the extension ".vcf"\n')
 
     print()
-
 
     # -------------------------------------------------------------------------
     # Prepare summary statistics
@@ -679,7 +676,7 @@ def main() -> None:
     for this_VCF_fh in VCF_files:  # VCF_filenames:
         this_VCF_file = this_VCF_fh.name
         # if this_VCF_file.endswith('_filtered.vcf'):
-        #     sys.exit(f'\n### ERROR: VCF file {this_VCF_file} may not already end with "_filtered.vcf", because ' + \
+        #     sys.exit(f'\n### ERROR: VCF file {this_VCF_file} may not already end with "_filtered.vcf", because '
         #              'this script will give it that suffix\n')
 
         # # Check file exists - already did this in arguments
@@ -693,9 +690,9 @@ def main() -> None:
         # this_vcf_reader = vcf.Reader(filename=this_VCF_file)
 
         # OPEN output file for writing
-        # this_outfile_hdl = open(VCF_to_outfile_name_dict[this_VCF_fh.name], "w")
-        this_outfile_hdl = open(os.path.join(out_dir, VCF_to_outfile_name_dict[this_VCF_file]), "wt")  # TODO comeback
-        # this_vcf_writer = vcf.Writer(this_outfile_hdl, this_vcf_reader)
+        # this_outFile_hdl = open(VCF_to_outFile_name_dict[this_VCF_fh.name], "w")
+        this_outFile_hdl = open(os.path.join(out_dir, VCF_to_outFile_name_dict[this_VCF_file]), "wt")  # TODO comeback
+        # this_vcf_writer = vcf.Writer(this_outFile_hdl, this_vcf_reader)
 
         # ---------------------------------------------------------------------
         # VCF DOCUMENTATION: http://samtools.github.io/hts-specs/VCFv4.2.pdf
@@ -721,31 +718,31 @@ def main() -> None:
 
         # ---------------------------------------------------------------------
         # Prepare additional metadata entries (##), to print for each file directly above the header (#)
-        # new_FILTER_lines = f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' + \
-        #                    f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' + \
-        #                    f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' + \
-        #                    f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false discovery rate (FP) cutoff: {FP_cutoff}">\n' + \
-        #                    f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
-        #                    f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support minor allele): {min_AC}">\n' + \
+        # new_FILTER_lines = f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' \
+        #                    f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' \
+        #                    f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' \
+        #                    f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false discovery rate (FP) cutoff: {FP_cutoff}">\n' \
+        #                    f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
+        #                    f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support minor allele): {min_AC}">\n' \
         #                    f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">'
 
         # new_INFO_lines = f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="Indicates whether a site is multiallelic (more than one ALT allele)\">'
-        new_metadata_lines = f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' + \
-                             f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' + \
-                             f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' + \
-                             f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false-positive (FP) count cutoff: {FP_cutoff}">\n' + \
-                             f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' + \
-                             f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' + \
-                             f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' + \
+        new_metadata_lines = f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' \
+                             f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' \
+                             f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' \
+                             f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false-positive (FP) count cutoff: {FP_cutoff}">\n' \
+                             f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
+                             f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' \
+                             f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' \
                              f'##FILTER=<ID=max_AF,Description="Major allele frequency cutoff (min allowed): {max_AF}">\n'
 
         for new_FILTER_line in new_FILTER_lines:
             new_metadata_lines += f'{new_FILTER_line}\n'
 
-        new_metadata_lines += f'##INFO=<ID=DECISION,Number=.,Type=String,Description="The decision(s) made to yield STATUS of PASS and/or FAIL">\n' + \
-                              f'##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the ALT allele(s) is a PASS or FAIL">\n' + \
-                              f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="The site is multiallelic (more than one ALT allele)">\n' + \
-                              f'##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="The REF allele failed to meet the criteria">'
+        new_metadata_lines += '##INFO=<ID=DECISION,Number=.,Type=String,Description="The decision(s) made to yield STATUS of PASS and/or FAIL">\n' \
+                              '##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the ALT allele(s) is a PASS or FAIL">\n' \
+                              '##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="The site is multiallelic (more than one ALT allele)">\n' \
+                              '##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="The REF allele failed to meet the criteria">'
         # Others may be written if encountered below for AC_key_new, AF_key_new, or DP_key_new
 
         # Keep track of numbers of records/samples/pass
@@ -802,7 +799,7 @@ def main() -> None:
                         INFO_metadata_dd[ID]['Type'] = grps[3]
                         INFO_metadata_dd[ID]['Description'] = grps[4]
 
-                        this_outfile_hdl.write(line + "\n")
+                        this_outFile_hdl.write(line + "\n")
                     elif line.startswith("##FORMAT="):
                         # print(f'FORMAT_line={line}')
                         grps = match.groups()  # 0 is whole match; groups are 1-based
@@ -815,29 +812,29 @@ def main() -> None:
                         if ID == AC_key_new:
                             print(f'### WARNING: FORMAT key="{ID}" already exists and will be OVERWRITTEN')
                             # WRITE *new* definition
-                            this_outfile_hdl.write(f'{new_AC_FORMAT_line}\n')
+                            this_outFile_hdl.write(f'{new_AC_FORMAT_line}\n')
                         elif ID == AF_key_new:
                             print(f'### WARNING: FORMAT key="{ID}" already exists and will be OVERWRITTEN')
                             # WRITE *new* definition
-                            this_outfile_hdl.write(f'{new_AF_FORMAT_line}\n')
+                            this_outFile_hdl.write(f'{new_AF_FORMAT_line}\n')
                         else:
                             # WRITE existing metadata headers
-                            this_outfile_hdl.write(line + "\n")
+                            this_outFile_hdl.write(line + "\n")
 
                 else:
                     # WRITE existing metadata headers
-                    this_outfile_hdl.write(line + "\n")
+                    this_outFile_hdl.write(line + "\n")
 
             elif line.startswith("#"):
                 # WRITE new AC, AF FORMAT metadata if they were not already seen and replaced
                 if not seen_AC_key_new_FLAG:
-                    this_outfile_hdl.write(f'{new_AC_FORMAT_line}\n')
+                    this_outFile_hdl.write(f'{new_AC_FORMAT_line}\n')
 
                 if not seen_AF_key_new_FLAG:
-                    this_outfile_hdl.write(f'{new_AF_FORMAT_line}\n')
+                    this_outFile_hdl.write(f'{new_AF_FORMAT_line}\n')
 
                 # WRITE new metadata
-                this_outfile_hdl.write(new_metadata_lines + "\n")
+                this_outFile_hdl.write(new_metadata_lines + "\n")
 
                 # PRINT gathered metadata information
                 # print('INFO_metadata_dd:')
@@ -852,7 +849,7 @@ def main() -> None:
                     sys.exit(f'\n### ERROR: one or more keys="{needed_keys_set}" are not present in FORMAT="{FORMAT_keys_set}"')
 
                 # WRITE header line
-                this_outfile_hdl.write(line + "\n")
+                this_outFile_hdl.write(line + "\n")
 
                 # RECORD sample name
                 this_sample = line.split('\t')[9]
@@ -864,17 +861,17 @@ def main() -> None:
                 line_list = line.split("\t")
 
                 if len(line_list) != 10:
-                    sys.exit('\n# ERROR: each VCF file must contain the called SNPs for exactly 1\n' + \
-                             '# pooled sequencing sample, and therefore must contain exactly 10 columns:\n' + \
-                             '\t(1) CHROM\n' + \
-                             '\t(2) POS\n' + \
-                             '\t(3) ID\n' + \
-                             '\t(4) REF\n' + \
-                             '\t(5) ALT\n' + \
-                             '\t(6) QUAL\n' + \
-                             '\t(7) FILTER\n' + \
-                             '\t(8) INFO\n' + \
-                             '\t(9) FORMAT [OPTIONAL]\n' + \
+                    sys.exit('\n# ERROR: each VCF file must contain the called SNPs for exactly 1\n'
+                             '# pooled sequencing sample, and therefore must contain exactly 10 columns:\n'
+                             '\t(1) CHROM\n'
+                             '\t(2) POS\n'
+                             '\t(3) ID\n'
+                             '\t(4) REF\n'
+                             '\t(5) ALT\n'
+                             '\t(6) QUAL\n'
+                             '\t(7) FILTER\n'
+                             '\t(8) INFO\n'
+                             '\t(9) FORMAT [OPTIONAL]\n'
                              '\t(10) <sample_name>\n')
 
                 # -------------------------------------------------------------
@@ -943,7 +940,7 @@ def main() -> None:
                 # this_DP4_grps = VCF_DP4_grpregex.match(this_INFO) # SEARCH INSTEAD
 
                 if len(this_FORMAT_list) != len(this_sample_list):
-                    sys.exit('\n### ERROR: number of data entries in FORMAT and <sample> columns do not match: ' + \
+                    sys.exit('\n### ERROR: number of data entries in FORMAT and <sample> columns do not match: '
                              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                 # SAMPLE DATA: create a dictionary
@@ -963,10 +960,10 @@ def main() -> None:
 
                 # if this_ALT_rec_comma_n > 0:
                 if len(this_ALT_list) > 1:  # this_ALT_n > 1:
-                    print(f'MULTIALLELIC: file={this_VCF_file}' + \
-                          f';seq={this_CHROM}' + \
-                          f';pos={this_POS}' + \
-                          f';REF={this_REF}' + \
+                    print(f'MULTIALLELIC: file={this_VCF_file}'
+                          f';seq={this_CHROM}'
+                          f';pos={this_POS}'
+                          f';REF={this_REF}'
                           f';ALT={this_ALT_list}')
 
                 # for this_sample_i, this_sample in enumerate(line.samples):  TODO multiple samples
@@ -1004,7 +1001,7 @@ def main() -> None:
                 # print(f'this_AC_list={this_AC_list}')
 
                 if len(this_ALT_list) != len(this_AF_list) or len(this_ALT_list) != len(this_AC_list):
-                    sys.exit('\n### ERROR: number of ALT, AF, and AC records do not match: ' + \
+                    sys.exit('\n### ERROR: number of ALT, AF, and AC records do not match: '
                              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                 # STORE counts for each ALT allele and CHECK AF is as expected
@@ -1012,20 +1009,20 @@ def main() -> None:
                 allele_index_dict: Dict[str, int] = defaultdict(int)
                 for i, this_ALT in enumerate(this_ALT_list):
                     if round(this_DP * this_AF_list[i]) != this_AC_list[i]:
-                        sys.exit(f'\n### ERROR: value of {AC_key} conflicts with allele count implied by {DP_key}*{AF_key}: ' + \
+                        sys.exit(f'\n### ERROR: value of {AC_key} conflicts with allele count implied by {DP_key}*{AF_key}: '
                                  f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     allele_AC_dict[str(this_ALT)] = int(this_AC_list[i])
 
                     if str(this_ALT) in allele_index_dict.keys():  # allele_index_dict[str(this_ALT)] is 0, gets False
-                        sys.exit(f'\n### ERROR: multiple ALT alleles for "{this_ALT}": ' + \
-                            f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
+                        sys.exit(f'\n### ERROR: multiple ALT alleles for "{this_ALT}": '
+                                 f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     allele_index_dict[str(this_ALT)] = i
 
                 # STORE COUNT FOR REF allele, which is the remainder from DP, if none of the ALTs match the REF
                 if this_REF in allele_AC_dict.keys():
-                    sys.exit(f'\n### ERROR: REF="{AC_key}" also an ALT: ' + \
+                    sys.exit(f'\n### ERROR: REF="{AC_key}" also an ALT: '
                              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
                 else:
                     allele_AC_dict[this_REF] = this_DP - sum(list(allele_AC_dict.values()))
@@ -1218,7 +1215,7 @@ def main() -> None:
 
                     # # DIE if no decision was reached
                     # if decision is None:
-                    #     sys.exit(f'\n### ERROR decision="None" at ' + \
+                    #     sys.exit(f'\n### ERROR decision="None" at '
                     #              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     # DIE is nonsensical decision reached
@@ -1348,32 +1345,32 @@ def main() -> None:
                         if decision in decision_choices_FAIL:
                             # print(f'==> {decision} <==\n')
 
-                            # By REF/ALT status
-                            REForALT = None
-                            if allele == this_REF:
-                                REForALT = 'REF'
-                            else:
-                                REForALT = 'ALT'
+                            # # By REF/ALT status
+                            # REForALT = None
+                            # if allele == this_REF:
+                            #     REForALT = 'REF'
+                            # else:
+                            #     REForALT = 'ALT'
 
                             # PRINT output string for log for FAILS
-                            out_string = f'FAILED: file="{this_VCF_file}"' + \
-                                         f';seq="{this_CHROM}"' + \
-                                         f';pos="{this_POS}"' + \
-                                         f';allele_FAILED="{REForALT}"' + \
-                                         f';REF="{this_REF}"' + \
-                                         f';ALT="{this_ALT}"' + \
-                                         f';AF="{round(this_AF, 5)}"' + \
-                                         f';AC="{AC}"' + \
-                                         f';DP="{this_DP}"' + \
-                                         f';FP="{round(FP_implied, 5)}"' + \
-                                         f';DECISION="{decision}"' + \
-                                         f';STATUS="FAIL"'
+                            out_string = f'FAILED: file="{this_VCF_file}"' \
+                                         f';seq="{this_CHROM}"' \
+                                         f';pos="{this_POS}"' \
+                                         f';allele_FAILED="{allele}"' \
+                                         f';REF="{this_REF}"' \
+                                         f';ALT="{",".join(this_ALT_list)}"' \
+                                         f';AF="{round(this_AF, 5)}"' \
+                                         f';AC="{AC}"' \
+                                         f';DP="{this_DP}"' \
+                                         f';FP="{round(FP_implied, 5)}"' \
+                                         f';DECISION="{decision}"' \
+                                         ';STATUS="FAIL"'  # f';allele_FAILED="{REForALT}"'
                             print(out_string)
 
                     # if round(this_AF, 3) == 0.414:
-                    #     sys.exit(f'\nfile="{this_VCF_file}"' + \
-                    #              f'\nseq="{this_CHROM}"' + \
-                    #              f'\npos="{this_POS}"' + \
+                    #     sys.exit(f'\nfile="{this_VCF_file}"'
+                    #              f'\nseq="{this_CHROM}"'
+                    #              f'\npos="{this_POS}"'
                     #              f'\nallele_AC_dict={dict(allele_AC_dict)}')
 
                 # PERFORM AC, AF CORRECTION given the decisions made
@@ -1392,18 +1389,18 @@ def main() -> None:
 
                 # MAJOR fails but ONE OR MORE MINORS do NOT
                 if major_allele in alleles_fail and pass_n > 0:
-                    # sys.exit(f'\n### ERROR: major_allele={major_allele} failed but 1 or more minor alleles did not; unexpected behavior: ' + \
+                    # sys.exit(f'\n### ERROR: major_allele={major_allele} failed but 1 or more minor alleles did not; unexpected behavior: '
                     #          f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     # PRINT output string for log for NOCALL
-                    out_string = f'NOCALL: major_allele="{major_allele}" failed but minor allele(s) did not: ' + \
-                                 f'file="{this_VCF_file}"' + \
-                                 f';seq="{this_CHROM}"' + \
-                                 f';pos="{this_POS}"' + \
-                                 f';REF="{this_REF}"' + \
-                                 f';ALT="{this_ALT_list}"' + \
-                                 f';DP="{this_DP}"' + \
-                                 f';FILTER="NOCALL"'
+                    out_string = f'NOCALL: major_allele="{major_allele}" failed but minor allele(s) did not: ' \
+                                 f'file="{this_VCF_file}"' \
+                                 f';seq="{this_CHROM}"' \
+                                 f';pos="{this_POS}"' \
+                                 f';REF="{this_REF}"' \
+                                 f';ALT="{this_ALT_list}"' \
+                                 f';DP="{this_DP}"' \
+                                 ';FILTER="NOCALL"'
                     print(out_string)
 
                     # REMOVE any PASS that exists, APPEND the NOCALL
@@ -1426,7 +1423,7 @@ def main() -> None:
                         elif this_allele in alleles_pass:
                             allele_AC_dict[this_allele] = round(this_DP * (allele_AC_dict[this_allele] / pass_AC_sum))
                         else:
-                            sys.exit('\n### ERROR: paradox in which allele neither passes nor fails: ' + \
+                            sys.exit('\n### ERROR: paradox in which allele neither passes nor fails: '
                                      f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
                     # print(f'AFTER CORRECTION, allele_AC_dict={allele_AC_dict}')
 
@@ -1450,10 +1447,10 @@ def main() -> None:
                         allele_AC_dict[major_allele] -= 1
 
                     else:
-                        sys.exit(f'\n### ERROR: depth differs before ({this_DP}) and after ({sum(allele_AC_dict.values())}) correction for failing alleles: ' + \
-                             f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"\n' + \
-                             f'allele_decision_dl={dict(allele_decision_dl)}\n' + \
-                             f'allele_AC_dict={dict(allele_AC_dict)}')
+                        sys.exit(f'\n### ERROR: depth differs before ({this_DP}) and after ({sum(allele_AC_dict.values())}) correction for failing alleles: '
+                                 f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"\n'
+                                 f'allele_decision_dl={dict(allele_decision_dl)}\n'
+                                 f'allele_AC_dict={dict(allele_AC_dict)}')
 
                 # TODO: make sure that if NEW KEY is identical to the ALREADY KEY, we don't overwrite it too soon
 
@@ -1530,7 +1527,7 @@ def main() -> None:
 
                     # Check it matches the previously inferred major allele (technically possible no allele AF >= 0.5)
                     if ALT_IS_MAJOR and this_ALT != major_allele:
-                        sys.exit(f'### ERROR: major allele dubious: this_ALT="{this_ALT}"; major_allele="{major_allele}" at: ' + \
+                        sys.exit(f'### ERROR: major allele dubious: this_ALT="{this_ALT}"; major_allele="{major_allele}" at: '
                                  f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
                     # Construct new records
@@ -1560,43 +1557,43 @@ def main() -> None:
                 # CATEGORIZE and PRINT IF RETAINED OR MODIFIED
 
                 # TODO: un-comment here and continue
-                # this_outfile_hdl.write(line_mod + '\n')
+                # this_outFile_hdl.write(line_mod + '\n')
                 # -------------------------------------------------------------
                 # ACTION
                 # print(decision)
 
                 # if decision in decision_choices_FAIL:
-                    # print(f'key={key};POS={line.POS};REF={this_REF};REFp={line.REF};DP={this_DP};key={key};value={this_sample_data[key]}')
-
-                    # replace all unknowns with NA (.)
-                    # line_mod_list = line.split('\t')  # TODO write VCF rec now or later instead?
-
-                    # Modify INFO
-                    # line_mod_list[7] = re_datum.sub('.', line_mod_list[7])
-                    # line_mod_list[7] = f'AF=1;DP={this_DP}'  # TODO write VCF rec now or later instead?
-                    # line_mod_list[7] = line_mod_list[7].replace('AF=NA', 'AF=1')  # no
-                    # line_mod_list[7] = line_mod_list[7].replace('DP=NA', f'DP={this_DP}')  # no
-
-                    # if this_ALT_n > 1:  # TODO write VCF rec now or later instead? ADD MULTIALLELEIC FLAG
-                    #     line_mod_list[7] = line_mod_list[7] + ';MULTIALLELIC'
-
-                    # Modify SAMPLE
-                    # line_mod_list[9] = re_datum.sub('.', line_mod_list[9])  # TODO write VCF rec now or later instead? add undefined
-
-                    # rejoin list into string
-                    # line_revised = '\t'.join(line_mod_list)  # TODO write VCF rec now or later instead?
-
-                    # # re-insert modified AF and DP only
-                    # line_revised = re_AF_datum.sub(r'\1AF=1', line_revised)
-                    # line_revised = re_DP_datum.sub(r'\1DP=' + str(this_DP), line_revised)
-
-                    # WRITE MODIFIED LINE
-                    # this_outfile_hdl.write(line_revised + "\n")  # TODO write VCF rec now or later instead?
-
-                    # ALL FAILS ACTIONS TAKEN; now
-                    # TODO: loop allele dict and reset the AC and AF entries, in case of multiallele
-                    # TODO: REPORT if conflict
-                    # TODO: THEN print out the new VCF record for this site
+                #     print(f'key={key};POS={line.POS};REF={this_REF};REFp={line.REF};DP={this_DP};key={key};value={this_sample_data[key]}')
+                #
+                #     replace all unknowns with NA (.)
+                #     line_mod_list = line.split('\t')  # TODO write VCF rec now or later instead?
+                #
+                #     Modify INFO
+                #     line_mod_list[7] = re_datum.sub('.', line_mod_list[7])
+                #     line_mod_list[7] = f'AF=1;DP={this_DP}'  # TODO write VCF rec now or later instead?
+                #     line_mod_list[7] = line_mod_list[7].replace('AF=NA', 'AF=1')  # no
+                #     line_mod_list[7] = line_mod_list[7].replace('DP=NA', f'DP={this_DP}')  # no
+                #
+                #     if this_ALT_n > 1:  # TODO write VCF rec now or later instead? ADD MULTIALLELEIC FLAG
+                #         line_mod_list[7] = line_mod_list[7] + ';MULTIALLELIC'
+                #
+                #     Modify SAMPLE
+                #     line_mod_list[9] = re_datum.sub('.', line_mod_list[9])  # TODO write VCF rec now or later instead? add undefined
+                #
+                #     rejoin list into string
+                #     line_revised = '\t'.join(line_mod_list)  # TODO write VCF rec now or later instead?
+                #
+                #     # re-insert modified AF and DP only
+                #     line_revised = re_AF_datum.sub(r'\1AF=1', line_revised)
+                #     line_revised = re_DP_datum.sub(r'\1DP=' + str(this_DP), line_revised)
+                #
+                #     WRITE MODIFIED LINE
+                #     this_outFile_hdl.write(line_revised + "\n")  # TODO write VCF rec now or later instead?
+                #
+                #     ALL FAILS ACTIONS TAKEN; now
+                #     TODO: loop allele dict and reset the AC and AF entries, in case of multiallele
+                #     TODO: REPORT if conflict
+                #     TODO: THEN print out the new VCF record for this site
 
                 # -------------------------------------------------------------
                 # WRITE THE MODIFIED RECORD
@@ -1661,12 +1658,12 @@ def main() -> None:
                 new_line_list.append(new_sample_record)
 
                 # PRINT NEW LINE
-                this_outfile_hdl.write('\t'.join(map(str, new_line_list)) + '\n')
+                this_outFile_hdl.write('\t'.join(map(str, new_line_list)) + '\n')
 
             # FINISH PROCESSING and WRITING line
 
         # FINISH PROCESSING VCF file
-        this_outfile_hdl.close()
+        this_outFile_hdl.close()
 
         # Print passing variants for this VCF
         print()
@@ -1720,13 +1717,12 @@ def main() -> None:
     # print(f'Total variants fail: {ALT_n_dict["fail"]}')
     # print(f'Fraction variants fail: {round(100 * ALT_n_dict["fail"] / total_ALT_n, 1)}%')
 
-
     print('=============> ALL ALLELES (at least 2 per record, REF and ALT) <==============')
     print(f'ALLELE_n={total_ALLELE_n}')
     # print(f'ALLELE_fail_n={total_ALLELE_fail_n}={round(100 * total_ALLELE_fail_n / total_ALLELE_n, 1)}%')
     # print(f'ALLELE_pass_n={total_ALLELE_pass_n}={round(100 * total_ALLELE_pass_n / total_ALLELE_n, 1)}%')
     for decision in decision_choices:
-            print(f'ALLELE_{decision}={ALLELE_n_dict[decision]}={round(100 * ALLELE_n_dict[decision] / total_ALLELE_n, 1)}%')
+        print(f'ALLELE_{decision}={ALLELE_n_dict[decision]}={round(100 * ALLELE_n_dict[decision] / total_ALLELE_n, 1)}%')
 
     for decision in decision_choices:  # ALLELE_n_dict.keys():
         print('')
@@ -1736,33 +1732,33 @@ def main() -> None:
 
         if ALLELE_n_dict[decision] > 0:
             n_freq = len(ALLELE_AF_dl[decision])
-            min_freq = round(np.min(np.array(ALLELE_AF_dl[decision])), 3)
-            Q1_freq = round(np.quantile(np.array(ALLELE_AF_dl[decision]), 0.25), 3)
-            mean_freq = round(np.mean(np.array(ALLELE_AF_dl[decision])), 3)
-            std_freq = round(np.std(np.array(ALLELE_AF_dl[decision])), 3)
-            median_freq = round(np.median(np.array(ALLELE_AF_dl[decision])), 3)
-            Q3_freq = round(np.quantile(np.array(ALLELE_AF_dl[decision]), 0.75), 3)
-            max_freq = round(np.max(np.array(ALLELE_AF_dl[decision])), 3)
+            min_freq = np.round(np.min(ALLELE_AF_dl[decision]), 3)
+            Q1_freq = np.round(np.quantile(ALLELE_AF_dl[decision], 0.25), 3)
+            mean_freq = np.round(np.mean(ALLELE_AF_dl[decision]), 3)
+            std_freq = np.round(np.std(ALLELE_AF_dl[decision]), 3)
+            median_freq = np.round(np.median(ALLELE_AF_dl[decision]), 3)
+            Q3_freq = np.round(np.quantile(ALLELE_AF_dl[decision], 0.75), 3)
+            max_freq = np.round(np.max(ALLELE_AF_dl[decision]), 3)
             print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
             n_AC = len(ALLELE_AC_dl[decision])
-            min_AC = np.min(np.array(ALLELE_AC_dl[decision]))
-            Q1_AC = round(np.quantile(np.array(ALLELE_AC_dl[decision]), 0.25), 3)
-            mean_AC = round(np.mean(np.array(ALLELE_AC_dl[decision])), 1)
-            std_AC = round(np.std(np.array(ALLELE_AC_dl[decision])), 3)
-            median_AC = np.median(np.array(ALLELE_AC_dl[decision]))
-            Q3_AC = round(np.quantile(np.array(ALLELE_AC_dl[decision]), 0.75), 3)
-            max_AC = np.max(np.array(ALLELE_AC_dl[decision]))
+            min_AC = np.min(ALLELE_AC_dl[decision])
+            Q1_AC = np.round(np.quantile(ALLELE_AC_dl[decision], 0.25), 3)
+            mean_AC = np.round(np.mean(ALLELE_AC_dl[decision]), 1)
+            std_AC = np.round(np.std(ALLELE_AC_dl[decision]), 3)
+            median_AC = np.median(ALLELE_AC_dl[decision])
+            Q3_AC = np.round(np.quantile(ALLELE_AC_dl[decision], 0.75), 3)
+            max_AC = np.max(ALLELE_AC_dl[decision])
             print(f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
 
             n_DP = len(ALLELE_DP_dl[decision])
-            min_DP = np.min(np.array(ALLELE_DP_dl[decision]))
-            Q1_DP = round(np.quantile(np.array(ALLELE_DP_dl[decision]), 0.25), 3)
-            mean_DP = round(np.mean(np.array(ALLELE_DP_dl[decision])), 1)
-            std_DP = round(np.std(np.array(ALLELE_DP_dl[decision])), 3)
-            median_DP = np.median(np.array(ALLELE_DP_dl[decision]))
-            Q3_DP = round(np.quantile(np.array(ALLELE_DP_dl[decision]), 0.75), 3)
-            max_DP = np.max(np.array(ALLELE_DP_dl[decision]))
+            min_DP = np.min(ALLELE_DP_dl[decision])
+            Q1_DP = np.round(np.quantile(ALLELE_DP_dl[decision], 0.25), 3)
+            mean_DP = np.round(np.mean(ALLELE_DP_dl[decision]), 1)
+            std_DP = np.round(np.std(ALLELE_DP_dl[decision]), 3)
+            median_DP = np.median(ALLELE_DP_dl[decision])
+            Q3_DP = np.round(np.quantile(ALLELE_DP_dl[decision], 0.75), 3)
+            max_DP = np.max(ALLELE_DP_dl[decision])
             print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
 
@@ -1783,33 +1779,33 @@ def main() -> None:
 
             if REF_n_dict[decision] > 0:
                 n_freq = len(REF_AF_dl[decision])
-                min_freq = round(np.min(np.array(REF_AF_dl[decision])), 3)
-                Q1_freq = round(np.quantile(np.array(REF_AF_dl[decision]), 0.25), 3)
-                mean_freq = round(np.mean(np.array(REF_AF_dl[decision])), 3)
-                std_freq = round(np.std(np.array(REF_AF_dl[decision])), 3)
-                median_freq = round(np.median(np.array(REF_AF_dl[decision])), 3)
-                Q3_freq = round(np.quantile(np.array(REF_AF_dl[decision]), 0.75), 3)
-                max_freq = round(np.max(np.array(REF_AF_dl[decision])), 3)
+                min_freq = np.round(np.min(REF_AF_dl[decision]), 3)
+                Q1_freq = np.round(np.quantile(REF_AF_dl[decision], 0.25), 3)
+                mean_freq = np.round(np.mean(REF_AF_dl[decision]), 3)
+                std_freq = np.round(np.std(REF_AF_dl[decision]), 3)
+                median_freq = np.round(np.median(REF_AF_dl[decision]), 3)
+                Q3_freq = np.round(np.quantile(REF_AF_dl[decision], 0.75), 3)
+                max_freq = np.round(np.max(REF_AF_dl[decision]), 3)
                 print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
                 n_AC = len(REF_AC_dl[decision])
-                min_AC = np.min(np.array(REF_AC_dl[decision]))
-                Q1_AC = round(np.quantile(np.array(REF_AC_dl[decision]), 0.25), 3)
-                mean_AC = round(np.mean(np.array(REF_AC_dl[decision])), 1)
-                std_AC = round(np.std(np.array(REF_AC_dl[decision])), 3)
-                median_AC = np.median(np.array(REF_AC_dl[decision]))
-                Q3_AC = round(np.quantile(np.array(REF_AC_dl[decision]), 0.75), 3)
-                max_AC = np.max(np.array(REF_AC_dl[decision]))
+                min_AC = np.min(REF_AC_dl[decision])
+                Q1_AC = np.round(np.quantile(REF_AC_dl[decision], 0.25), 3)
+                mean_AC = np.round(np.mean(REF_AC_dl[decision]), 1)
+                std_AC = np.round(np.std(REF_AC_dl[decision]), 3)
+                median_AC = np.median(REF_AC_dl[decision])
+                Q3_AC = np.round(np.quantile(REF_AC_dl[decision], 0.75), 3)
+                max_AC = np.max(REF_AC_dl[decision])
                 print(f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
 
                 n_DP = len(REF_DP_dl[decision])
-                min_DP = np.min(np.array(REF_DP_dl[decision]))
-                Q1_DP = round(np.quantile(np.array(REF_DP_dl[decision]), 0.25), 3)
-                mean_DP = round(np.mean(np.array(REF_DP_dl[decision])), 1)
-                std_DP = round(np.std(np.array(REF_DP_dl[decision])), 3)
-                median_DP = np.median(np.array(REF_DP_dl[decision]))
-                Q3_DP = round(np.quantile(np.array(REF_DP_dl[decision]), 0.75), 3)
-                max_DP = np.max(np.array(REF_DP_dl[decision]))
+                min_DP = np.min(REF_DP_dl[decision])
+                Q1_DP = np.round(np.quantile(REF_DP_dl[decision], 0.25), 3)
+                mean_DP = np.round(np.mean(REF_DP_dl[decision]), 1)
+                std_DP = np.round(np.std(REF_DP_dl[decision]), 3)
+                median_DP = np.median(REF_DP_dl[decision])
+                Q3_DP = np.round(np.quantile(REF_DP_dl[decision], 0.75), 3)
+                max_DP = np.max(REF_DP_dl[decision])
                 print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
 
@@ -1830,33 +1826,33 @@ def main() -> None:
 
             if ALT_n_dict[decision] > 0:
                 n_freq = len(ALT_AF_dl[decision])
-                min_freq = round(np.min(np.array(ALT_AF_dl[decision])), 3)
-                Q1_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.25), 3)
-                mean_freq = round(np.mean(np.array(ALT_AF_dl[decision])), 3)
-                std_freq = round(np.std(np.array(ALT_AF_dl[decision])), 3)
-                median_freq = round(np.median(np.array(ALT_AF_dl[decision])), 3)
-                Q3_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.75), 3)
-                max_freq = round(np.max(np.array(ALT_AF_dl[decision])), 3)
+                min_freq = np.round(np.min(ALT_AF_dl[decision]), 3)
+                Q1_freq = np.round(np.quantile(ALT_AF_dl[decision], 0.25), 3)
+                mean_freq = np.round(np.mean(ALT_AF_dl[decision]), 3)
+                std_freq = np.round(np.std(ALT_AF_dl[decision]), 3)
+                median_freq = np.round(np.median(ALT_AF_dl[decision]), 3)
+                Q3_freq = np.round(np.quantile(ALT_AF_dl[decision], 0.75), 3)
+                max_freq = np.round(np.max(ALT_AF_dl[decision]), 3)
                 print(f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
                 n_AC = len(ALT_AC_dl[decision])
-                min_AC = np.min(np.array(ALT_AC_dl[decision]))
-                Q1_AC = round(np.quantile(np.array(ALT_AC_dl[decision]), 0.25), 3)
-                mean_AC = round(np.mean(np.array(ALT_AC_dl[decision])), 1)
-                std_AC = round(np.std(np.array(ALT_AC_dl[decision])), 3)
-                median_AC = np.median(np.array(ALT_AC_dl[decision]))
-                Q3_AC = round(np.quantile(np.array(ALT_AC_dl[decision]), 0.75), 3)
-                max_AC = np.max(np.array(ALT_AC_dl[decision]))
+                min_AC = np.min(ALT_AC_dl[decision])
+                Q1_AC = np.round(np.quantile(ALT_AC_dl[decision], 0.25), 3)
+                mean_AC = np.round(np.mean(ALT_AC_dl[decision]), 1)
+                std_AC = np.round(np.std(ALT_AC_dl[decision]), 3)
+                median_AC = np.median(ALT_AC_dl[decision])
+                Q3_AC = np.round(np.quantile(ALT_AC_dl[decision], 0.75), 3)
+                max_AC = np.max(ALT_AC_dl[decision])
                 print(f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
 
                 n_DP = len(ALT_DP_dl[decision])
-                min_DP = np.min(np.array(ALT_DP_dl[decision]))
-                Q1_DP = round(np.quantile(np.array(ALT_DP_dl[decision]), 0.25), 3)
-                mean_DP = round(np.mean(np.array(ALT_DP_dl[decision])), 1)
-                std_DP = round(np.std(np.array(ALT_DP_dl[decision])), 3)
-                median_DP = np.median(np.array(ALT_DP_dl[decision]))
-                Q3_DP = round(np.quantile(np.array(ALT_DP_dl[decision]), 0.75), 3)
-                max_DP = np.max(np.array(ALT_DP_dl[decision]))
+                min_DP = np.min(ALT_DP_dl[decision])
+                Q1_DP = np.round(np.quantile(ALT_DP_dl[decision], 0.25), 3)
+                mean_DP = np.round(np.mean(ALT_DP_dl[decision]), 1)
+                std_DP = np.round(np.std(ALT_DP_dl[decision]), 3)
+                median_DP = np.median(ALT_DP_dl[decision])
+                Q3_DP = np.round(np.quantile(ALT_DP_dl[decision], 0.75), 3)
+                max_DP = np.max(ALT_DP_dl[decision])
                 print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
 
@@ -1875,35 +1871,35 @@ def main() -> None:
 
         if MAJOR_n_dict[decision] > 0:
             n_freq = len(MAJOR_AF_dl[decision])
-            min_freq = round(np.min(np.array(MAJOR_AF_dl[decision])), 3)
-            Q1_freq = round(np.quantile(np.array(MAJOR_AF_dl[decision]), 0.25), 3)
-            mean_freq = round(np.mean(np.array(MAJOR_AF_dl[decision])), 3)
-            std_freq = round(np.std(np.array(MAJOR_AF_dl[decision])), 3)
-            median_freq = round(np.median(np.array(MAJOR_AF_dl[decision])), 3)
-            Q3_freq = round(np.quantile(np.array(MAJOR_AF_dl[decision]), 0.75), 3)
-            max_freq = round(np.max(np.array(MAJOR_AF_dl[decision])), 3)
+            min_freq = np.round(np.min(MAJOR_AF_dl[decision]), 3)
+            Q1_freq = np.round(np.quantile(MAJOR_AF_dl[decision], 0.25), 3)
+            mean_freq = np.round(np.mean(MAJOR_AF_dl[decision]), 3)
+            std_freq = np.round(np.std(MAJOR_AF_dl[decision]), 3)
+            median_freq = np.round(np.median(MAJOR_AF_dl[decision]), 3)
+            Q3_freq = np.round(np.quantile(MAJOR_AF_dl[decision], 0.75), 3)
+            max_freq = np.round(np.max(MAJOR_AF_dl[decision]), 3)
             print(
                 f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
             n_AC = len(MAJOR_AC_dl[decision])
-            min_AC = np.min(np.array(MAJOR_AC_dl[decision]))
-            Q1_AC = round(np.quantile(np.array(MAJOR_AC_dl[decision]), 0.25), 3)
-            mean_AC = round(np.mean(np.array(MAJOR_AC_dl[decision])), 1)
-            std_AC = round(np.std(np.array(MAJOR_AC_dl[decision])), 3)
-            median_AC = np.median(np.array(MAJOR_AC_dl[decision]))
-            Q3_AC = round(np.quantile(np.array(MAJOR_AC_dl[decision]), 0.75), 3)
-            max_AC = np.max(np.array(MAJOR_AC_dl[decision]))
+            min_AC = np.min(MAJOR_AC_dl[decision])
+            Q1_AC = np.round(np.quantile(MAJOR_AC_dl[decision], 0.25), 3)
+            mean_AC = np.round(np.mean(MAJOR_AC_dl[decision]), 1)
+            std_AC = np.round(np.std(MAJOR_AC_dl[decision]), 3)
+            median_AC = np.median(MAJOR_AC_dl[decision])
+            Q3_AC = np.round(np.quantile(MAJOR_AC_dl[decision], 0.75), 3)
+            max_AC = np.max(MAJOR_AC_dl[decision])
             print(
                 f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
 
             n_DP = len(MAJOR_DP_dl[decision])
-            min_DP = np.min(np.array(MAJOR_DP_dl[decision]))
-            Q1_DP = round(np.quantile(np.array(MAJOR_DP_dl[decision]), 0.25), 3)
-            mean_DP = round(np.mean(np.array(MAJOR_DP_dl[decision])), 1)
-            std_DP = round(np.std(np.array(MAJOR_DP_dl[decision])), 3)
-            median_DP = np.median(np.array(MAJOR_DP_dl[decision]))
-            Q3_DP = round(np.quantile(np.array(MAJOR_DP_dl[decision]), 0.75), 3)
-            max_DP = np.max(np.array(MAJOR_DP_dl[decision]))
+            min_DP = np.min(MAJOR_DP_dl[decision])
+            Q1_DP = np.round(np.quantile(MAJOR_DP_dl[decision], 0.25), 3)
+            mean_DP = np.round(np.mean(MAJOR_DP_dl[decision]), 1)
+            std_DP = np.round(np.std(MAJOR_DP_dl[decision]), 3)
+            median_DP = np.median(MAJOR_DP_dl[decision])
+            Q3_DP = np.round(np.quantile(MAJOR_DP_dl[decision], 0.75), 3)
+            max_DP = np.max(MAJOR_DP_dl[decision])
             print(
                 f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
@@ -1923,85 +1919,37 @@ def main() -> None:
 
         if MINOR_n_dict[decision] > 0:
             n_freq = len(MINOR_AF_dl[decision])
-            min_freq = round(np.min(np.array(MINOR_AF_dl[decision])), 3)
-            Q1_freq = round(np.quantile(np.array(MINOR_AF_dl[decision]), 0.25), 3)
-            mean_freq = round(np.mean(np.array(MINOR_AF_dl[decision])), 3)
-            std_freq = round(np.std(np.array(MINOR_AF_dl[decision])), 3)
-            median_freq = round(np.median(np.array(MINOR_AF_dl[decision])), 3)
-            Q3_freq = round(np.quantile(np.array(MINOR_AF_dl[decision]), 0.75), 3)
-            max_freq = round(np.max(np.array(MINOR_AF_dl[decision])), 3)
+            min_freq = np.round(np.min(MINOR_AF_dl[decision]), 3)
+            Q1_freq = np.round(np.quantile(MINOR_AF_dl[decision], 0.25), 3)
+            mean_freq = np.round(np.mean(MINOR_AF_dl[decision]), 3)
+            std_freq = np.round(np.std(MINOR_AF_dl[decision]), 3)
+            median_freq = np.round(np.median(MINOR_AF_dl[decision]), 3)
+            Q3_freq = np.round(np.quantile(MINOR_AF_dl[decision], 0.75), 3)
+            max_freq = np.round(np.max(MINOR_AF_dl[decision]), 3)
             print(
                 f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
 
             n_AC = len(MINOR_AC_dl[decision])
-            min_AC = np.min(np.array(MINOR_AC_dl[decision]))
-            Q1_AC = round(np.quantile(np.array(MINOR_AC_dl[decision]), 0.25), 3)
-            mean_AC = round(np.mean(np.array(MINOR_AC_dl[decision])), 1)
-            std_AC = round(np.std(np.array(MINOR_AC_dl[decision])), 3)
-            median_AC = np.median(np.array(MINOR_AC_dl[decision]))
-            Q3_AC = round(np.quantile(np.array(MINOR_AC_dl[decision]), 0.75), 3)
-            max_AC = np.max(np.array(MINOR_AC_dl[decision]))
+            min_AC = np.min(MINOR_AC_dl[decision])
+            Q1_AC = np.round(np.quantile(MINOR_AC_dl[decision], 0.25), 3)
+            mean_AC = np.round(np.mean(MINOR_AC_dl[decision]), 1)
+            std_AC = np.round(np.std(MINOR_AC_dl[decision]), 3)
+            median_AC = np.median(MINOR_AC_dl[decision])
+            Q3_AC = np.round(np.quantile(MINOR_AC_dl[decision], 0.75), 3)
+            max_AC = np.max(MINOR_AC_dl[decision])
             print(
                 f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
 
             n_DP = len(MINOR_DP_dl[decision])
-            min_DP = np.min(np.array(MINOR_DP_dl[decision]))
-            Q1_DP = round(np.quantile(np.array(MINOR_DP_dl[decision]), 0.25), 3)
-            mean_DP = round(np.mean(np.array(MINOR_DP_dl[decision])), 1)
-            std_DP = round(np.std(np.array(MINOR_DP_dl[decision])), 3)
-            median_DP = np.median(np.array(MINOR_DP_dl[decision]))
-            Q3_DP = round(np.quantile(np.array(MINOR_DP_dl[decision]), 0.75), 3)
-            max_DP = np.max(np.array(MINOR_DP_dl[decision]))
+            min_DP = np.min(MINOR_DP_dl[decision])
+            Q1_DP = np.round(np.quantile(MINOR_DP_dl[decision], 0.25), 3)
+            mean_DP = np.round(np.mean(MINOR_DP_dl[decision]), 1)
+            std_DP = np.round(np.std(MINOR_DP_dl[decision]), 3)
+            median_DP = np.median(MINOR_DP_dl[decision])
+            Q3_DP = np.round(np.quantile(MINOR_DP_dl[decision], 0.75), 3)
+            max_DP = np.max(MINOR_DP_dl[decision])
             print(f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
     print()
-
-    # -------------------------------------------------------------------------
-    # PRINT stats
-    # print(f'ALT_n_dict={ALT_n_dict}')
-    """
-    if set(list(ALT_n_dict.keys())).issubset(set(decision_choices)):
-        for decision in ALT_n_dict.keys():
-            if decision in decision_choices:  # sometimes a certain decision wasn't made
-                print('')
-                print(f'==========> "{decision}": {summaryKey_to_description[decision]} <==========')
-
-                n_freq = len(ALT_AF_dl[decision])
-                min_freq = round(np.min(np.array(ALT_AF_dl[decision])), 3)
-                Q1_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.25), 3)
-                mean_freq = round(np.mean(np.array(ALT_AF_dl[decision])), 3)
-                std_freq = round(np.std(np.array(ALT_AF_dl[decision])), 3)
-                median_freq = round(np.median(np.array(ALT_AF_dl[decision])), 3)
-                Q3_freq = round(np.quantile(np.array(ALT_AF_dl[decision]), 0.75), 3)
-                max_freq = round(np.max(np.array(ALT_AF_dl[decision])), 3)
-                print(
-                    f'AF_{decision}: n={n_freq};min={min_freq};Q1={Q1_freq};mean={mean_freq};std={std_freq};median={median_freq};Q3={Q3_freq};max={max_freq}')
-
-                n_AC = len(ALT_AC_dl[decision])
-                min_AC = np.min(np.array(ALT_AC_dl[decision]))
-                Q1_AC = round(np.quantile(np.array(ALT_AC_dl[decision]), 0.25), 3)
-                mean_AC = round(np.mean(np.array(ALT_AC_dl[decision])), 1)
-                std_AC = round(np.std(np.array(ALT_AC_dl[decision])), 3)
-                median_AC = np.median(np.array(ALT_AC_dl[decision]))
-                Q3_AC = round(np.quantile(np.array(ALT_AC_dl[decision]), 0.75), 3)
-                max_AC = np.max(np.array(ALT_AC_dl[decision]))
-                print(
-                    f'AC_{decision}: n={n_AC};min={min_AC};Q1={Q1_AC};mean={mean_AC};std={std_AC};median={median_AC};Q3={Q3_AC};max={max_AC}')
-
-                n_DP = len(ALT_DP_dl[decision])
-                min_DP = np.min(np.array(ALT_DP_dl[decision]))
-                Q1_DP = round(np.quantile(np.array(ALT_DP_dl[decision]), 0.25), 3)
-                mean_DP = round(np.mean(np.array(ALT_DP_dl[decision])), 1)
-                std_DP = round(np.std(np.array(ALT_DP_dl[decision])), 3)
-                median_DP = np.median(np.array(ALT_DP_dl[decision]))
-                Q3_DP = round(np.quantile(np.array(ALT_DP_dl[decision]), 0.75), 3)
-                max_DP = np.max(np.array(ALT_DP_dl[decision]))
-                print(
-                    f'DP_{decision}: n={n_DP};min={min_DP};Q1={Q1_DP};mean={mean_DP};std={std_DP};median={median_DP};Q3={Q3_DP};max={max_DP}')
-    else:
-        sys.exit(f'\n### ERROR: summary statistics unexpected or missing in:\n' + \
-                 f'{sorted(list(ALT_n_dict.keys()))}\n' + \
-                 f'{sorted(decision_choices)}\n')
-    """
     print('# -----------------------------------------------------------------------------')
 
     # -------------------------------------------------------------------------
