@@ -63,7 +63,7 @@ In addition to simple filtering rules, VCFgenie implements a dynamic (site-by-si
 
 The method is **dynamic** because each site is evaluated separately, with results depending on that site's `DP` and each allele's `AC`. The method is **binomial** because, given a sequencing error rate per base (`p`) and coverage (`DP`), it determines the probability that each allele's `AC` (`x`) could have resulted from sequencing error alone. Finally, the method controls for a **false-positive count** defined as a user-provided maximum acceptable number of false variant calls, rejecting any variants that are too likely the result of error alone. This false-positive count is a function of four parameters, each of which must or can be supplied by the user (see [Options](#options)):
 
-1. `--error_per_site`: error rate per site expected as the result of sample preparation, amplification, and sequencing (assumes all nucleotides equally probable)
+1. `--error_per_site`: error rate per site expected as the result of sample preparation, library preparation, and sequencing (currently assumes all nucleotide errors equally probable; see [TODO](#todo))
 2. `--DP_key`: the read depth (coverage) at a site (i.e., each **read** is another opportunity for error)
 3. `--seq_len`: length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides (i.e., each **site** is another opportunity for error)
 4. `--num_samples`: number of samples examined (i.e., each **sample** is another opportunity for error).
@@ -131,7 +131,7 @@ Call VCFgenie using the following options:
 **REQUIRED:**
 
 * `-i`, `--VCF_files` **[FILE(S)]**: input variant call format (VCF) file(s)
-* `-e`, `--error_per_site` **[float]**: error rate per site expected as the result of sample preparation, amplification, and sequencing (assumes all nucleotides equally probable)
+* `-e`, `--error_per_site` **[float]**: error rate per site expected as the result of sample preparation, library preparation, and sequencing (currently assumes all nucleotide errors equally probable
 * `-L`, `--seq_len` **[int]**: length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides
 * `-n`, `--num_samples` **[int]**: number of samples (VCF files) in full analysis
 * `-f`, `--FP_cutoff` **[float]**: analysis-wide false-positive (FP) count cutoff
