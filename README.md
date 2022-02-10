@@ -44,6 +44,7 @@ VCFgenie is written in Python 3.8. Its dependencies include the following librar
 * `scipy`
 * `sys`
 * `typing`
+* `vcf` (`pyvcf`)
 
 The program examines one or more user-provided VCF file(s) to filter, process, and modify records based on an arbitrarily complex set of user-provided rules. One record corresponds to one line of the VCF file, which reports a miniumum of two alleles: REF and ALT. Arbitrarily large numbers of ALT alleles (i.e., MULTIALLELIC sites) are allowed. 
 
