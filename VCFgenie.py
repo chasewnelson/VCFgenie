@@ -86,7 +86,7 @@ import sys
 import vcf
 from collections import defaultdict
 from scipy.stats import binom
-from typing import Dict, List, NamedTuple, TextIO
+from typing import Any, Dict, List, NamedTuple, Optional, TextIO
 
 usage = """# -----------------------------------------------------------------------------
 VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control false-positive count
@@ -105,7 +105,7 @@ EXAMPLE:
 
 class Args(NamedTuple):
     """ Command-line arguments """
-    VCF_files: str
+    VCF_files: List[str]
     error_per_site: float
     seq_len: int
     num_samples: int
@@ -308,11 +308,10 @@ def get_args() -> Args:
         for line in this_VCF_fh:
             if not re_start_pound.match(line):
                 break
-            elif re_header_start.match(line):
+
+            if re_header_start.match(line):
                 missing_header = False
                 break
-            else:
-                continue
 
         if missing_header:
             parser.error(f'\n### ERROR: VCF_file="{this_VCF_file}" does not contain a recognizable header. '
@@ -328,9 +327,14 @@ def get_args() -> Args:
 
         try:
             next(this_vcf_Reader)
-        except ValueError:
-            parser.error(f'\n### ERROR: records in VCF_file="{this_VCF_file}" not readable by pyvcf. '
-                         'VCF file wrong format?\n')
+        except ValueError as e:
+            parser.error(f'### ERROR: ValueError: {e}\n'
+                         f'### Records in VCF_file="{this_VCF_file}" not readable by pyvcf.\n'
+                         '### VCF file wrong format?\n')
+        except StopIteration as e:
+            parser.error(f'\n### ERROR: StopIteration: {e}\n' 
+                         f'### VCF_file="{this_VCF_file}" not iterable by pyvcf.\n'
+                         '### VCF may not contain any records (rows;  FAOvariants).\n')
 
     # Appropriate numeric values
     if args.error_per_site < 0 or args.error_per_site >= 1 or not args.error_per_site:
@@ -445,8 +449,8 @@ def main() -> None:
     print(f'LOG:INFO_rules="{INFO_rules}"')
     print(f'LOG:sample_rules="{sample_rules}"')
     print(f'LOG:overwrite_INFO="{overwrite_INFO}"', flush=True)
-    if(overwrite_INFO):
-        print(f'### WARNING: INFO will be overwritten with <sample> data when possible!')
+    if overwrite_INFO:
+        print('### WARNING: INFO will be overwritten with <sample> data when possible!')
 
     # WARN about unintended overwriting due to the specified new keys
     if AC_key == AC_key_new:
@@ -520,7 +524,10 @@ def main() -> None:
             INFO_rule_match = re_rule.match(INFO_rule)
 
             if INFO_rule_match is not None:
-                key, operator, value = INFO_rule_match.groups()
+                INFO_rule_match_groups = INFO_rule_match.groups()
+                key: str = INFO_rule_match_groups[0]
+                operator: str = INFO_rule_match_groups[1]
+                value: Any = INFO_rule_match_groups[2]
 
                 if operator in operator_choices:
                     print(f'LOG:INFO_rule_{i}:key="{key}",operator="{operator}",value="{value}"')
@@ -531,6 +538,13 @@ def main() -> None:
                     sys.exit(f'\n### ERROR: INFO_rule="{INFO_rule}" does not use an acceptable operator {operator_choices}')
             else:
                 sys.exit(f'\n### ERROR: INFO_rule="{INFO_rule}" does not use an acceptable format or operator {operator_choices}')
+
+        # Loop cleanup
+        del INFO_rule_match_groups
+        del key
+        del operator
+        del value
+
     # print(f'INFO_rule_lt={INFO_rule_lt}')
 
     # SAMPLE rules
@@ -609,7 +623,7 @@ def main() -> None:
           '[IN_FILE_NAME] -> [OUT_FILE_NAME]')
 
     # Store input -> output file names
-    VCF_to_outFile_name_dict: Dict[str, str] = defaultdict(str)
+    VCF_to_out_file_dict: Dict[str, str] = defaultdict(str)
     VCF_files = sorted(VCF_files)
     # for this_VCF_file in sorted(VCF_files):
     for this_VCF_file in VCF_files:
@@ -621,7 +635,7 @@ def main() -> None:
             this_outFile_name = this_inFile_root + '_filtered.vcf'
 
             if not os.path.exists(this_outFile_name):
-                VCF_to_outFile_name_dict[this_VCF_file] = this_outFile_name
+                VCF_to_out_file_dict[this_VCF_file] = this_outFile_name
                 print(f'{this_VCF_file} -> {this_outFile_name}')
             else:
                 sys.exit(f'\n### ERROR: output VCF file {this_VCF_file} already exists\n')
@@ -629,7 +643,7 @@ def main() -> None:
         #     this_outFile_name = this_inFile_root + '.gz_filtered.vcf'
         #
         #     if not os.path.exists(this_outFile_name):
-        #         VCF_to_outFile_name_dict[this_VCF_file] = this_outFile_name
+        #         VCF_to_out_file_dict[this_VCF_file] = this_outFile_name
         #         print(f'{this_VCF_file} -> {this_outFile_name}')
         #     else:
         #         sys.exit(f'\n### ERROR: output VCF file {this_VCF_file} already exists\n')
@@ -713,8 +727,9 @@ def main() -> None:
         # this_vcf_reader = vcf.Reader(filename=this_VCF_file)
 
         # OPEN output file for writing
-        # this_outFile_hdl = open(VCF_to_outFile_name_dict[this_VCF_fh.name], "w")
-        this_out_fh = open(os.path.join(out_dir, VCF_to_outFile_name_dict[this_VCF_file]), "wt")
+        # this_outFile_hdl = open(VCF_to_out_file_dict[this_VCF_fh.name], "w")
+        this_out_file = os.path.join(out_dir, VCF_to_out_file_dict[this_VCF_file])
+        this_out_fh = open(this_out_file, "wt")
         # this_vcf_writer = vcf.Writer(this_outFile_hdl, this_vcf_reader)
 
         # ---------------------------------------------------------------------
@@ -796,8 +811,8 @@ def main() -> None:
         sample_n += 1
         this_sample = ''
 
-        INFO_metadata_dd = {}
-        FORMAT_metadata_dd = {}
+        INFO_metadata_dd: Dict[str, dict] = {}
+        FORMAT_metadata_dd: Dict[str, dict] = {}
 
         seen_AC_key_new_FLAG = False
         new_AC_FORMAT_line = f'##FORMAT=<ID={AC_key_new},Number=A,Type=Integer,Description="ALT allele count after FP and other processing">'
@@ -925,8 +940,10 @@ def main() -> None:
                 this_INFO_list = this_INFO_rec.split(';')
                 this_INFO_list_keys = list(this_INFO_list)
                 this_INFO_list_keys = [re_VCF_INFO.sub(r'\1', x) for x in this_INFO_list_keys]
-                this_INFO_list_values = list(this_INFO_list)
-                this_INFO_list_values = [re_VCF_INFO.sub(r'\2', x) if '=' in x else None for x in this_INFO_list_values]
+
+                this_INFO_list_values: List[Optional[str]] = [re_VCF_INFO.sub(r'\2', x) if '=' in x else None for x in list(this_INFO_list)]
+                # this_INFO_list_values = list(this_INFO_list)
+                # this_INFO_list_values = [re_VCF_INFO.sub(r'\2', x) if '=' in x else None for x in this_INFO_list_values]
                 this_INFO_data = dict(zip(this_INFO_list_keys, this_INFO_list_values))
                 # this_DP = re_VCF_DP.search(this_INFO_rec)
                 # this_DP = this_INFO_rec[this_DP.start():this_DP.end()]  # AF=0.367003
@@ -1002,19 +1019,27 @@ def main() -> None:
                 # DP
                 this_DP = int(this_sample_data[DP_key])  # just one int
 
+                # IF COVERAGE IS ZERO, EXCLUDE
+                if this_DP < 1:
+                    continue  # SKIP this iteration; variant effectively filtered out
+
                 # AF
                 this_AF_rec = this_sample_data[AF_key]  # list if multiple values, else puts it in a list
 
                 # Ensure AF is in a list, even if just one value: convert to list if not one already
                 # N.B.: could also have inferred what to do by the number of ALT alleles, this_ALT_n
                 # this_AF_list = [this_AF_rec] if isinstance(this_AF_rec, float) else this_AF_rec
-                this_AF_list = this_AF_rec.split(',')
-                this_AF_list = list(map(float, this_AF_list))
+
+                this_AF_list: List[float] = list(map(float, this_AF_rec.split(',')))
+                # this_AF_list = this_AF_rec.split(',')
+                # this_AF_list = list(map(float, this_AF_list))
 
                 # AC
                 this_AC_rec = this_sample_data[AC_key]  # list if multiple values, else puts it in a list
-                this_AC_list = this_AC_rec.split(',')
-                this_AC_list = list(map(float, this_AC_list))
+                this_AC_list: List[float] = list(map(float, this_AC_rec.split(',')))
+
+                # this_AC_list = this_AC_rec.split(',')
+                # this_AC_list = list(map(float, this_AC_list))
 
                 # print(f'this_DP={this_DP}')
                 # # print(f'type(this_DP)={type(this_DP)}')
@@ -1029,11 +1054,21 @@ def main() -> None:
 
                 # STORE counts for each ALT allele and CHECK AF is as expected
                 allele_AC_dict: Dict[str, int] = defaultdict(int)
-                allele_index_dict: Dict[str, int] = defaultdict(int)
+                allele_index_dict: Dict[str, Optional[int]] = defaultdict(int)
                 for i, this_ALT in enumerate(this_ALT_list):
                     if round(this_DP * this_AF_list[i]) != this_AC_list[i]:
-                        sys.exit(f'\n### ERROR: value of {AC_key} conflicts with allele count implied by {DP_key}*{AF_key}: '
-                                 f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
+                        # sys.exit(f'\n### ERROR: value of {AC_key} ({round(this_AC_list[i])}) conflicts with allele count implied by {DP_key}*{AF_key} ({round(this_DP * this_AF_list[i])}): '
+                        #          f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}";'
+                        #          f'{AC_key}="{this_sample_data[AC_key]}";{DP_key}="{this_DP}";{AF_key}="{this_AF_list[i]}";{AC_key}="{this_AC_list[i]}"')
+
+                        print(f'### WARNING: value of {AC_key} ({round(this_AC_list[i])}) conflicts with allele ' 
+                              f'count implied by {DP_key}*{AF_key} ({round(this_DP * this_AF_list[i])}): '
+                              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";' 
+                              f'ALT_list="{this_ALT_list}";{AC_key}="{this_sample_data[AC_key]}";{DP_key}="{this_DP}";' 
+                              f'{AF_key}="{this_AF_list[i]}";{AC_key}="{this_AC_list[i]}"; '
+                              f'this mismatch may be due to an error inherent to SNP calling; '
+                              'or, if may be due to error correction (e.g., flow cell correction in Ion Torrent); '
+                              f'VALUE OF {AC_key} = ({round(this_AC_list[i])}) WILL BE USED')
 
                     allele_AC_dict[str(this_ALT)] = int(this_AC_list[i])
 
@@ -1119,11 +1154,14 @@ def main() -> None:
                     # failINFO: one of the user-provided INFO_rules
                     if len(INFO_rule_lt) > 0:
                         for i, rule in enumerate(INFO_rule_lt):
-                            (key, operator, value) = rule
+                            # (key, operator, value) = rule
+                            INFO_rule_key: str = rule[0]
+                            operator: str = rule[1]
+                            value: Any = rule[2]
 
-                            data_Number = str(INFO_metadata_dd[key]['Number'])
-                            data_Type = str(INFO_metadata_dd[key]['Type'])
-                            this_INFO_data_value = this_INFO_data[key]
+                            data_Number = str(INFO_metadata_dd[INFO_rule_key]['Number'])
+                            data_Type = str(INFO_metadata_dd[INFO_rule_key]['Type'])
+                            this_INFO_data_value = this_INFO_data[INFO_rule_key]
 
                             if data_Number == 'A' and allele == this_REF:  # cannot be applied; move on to next rule
                                 continue  # next rule; this Number cannot be applied to REF
@@ -1158,16 +1196,19 @@ def main() -> None:
                                         (operator == '>' and not op.gt(this_INFO_data_value, value)):
                                     # print('==> failINFO <==\n')
                                     decision_list.append('failINFO')
-                                    this_FILTER_new_list.append(f'{key}')
+                                    this_FILTER_new_list.append(f'{INFO_rule_key}')
 
                     # failsample: one of the user-provided sample_rules
                     if len(sample_rule_lt) > 0:
                         for i, rule in enumerate(sample_rule_lt):
-                            (key, operator, value) = rule
+                            # (sample_rule_key, operator, value) = rule
+                            sample_rule_key: str = rule[0]
+                            operator: str = rule[1]
+                            value: Any = rule[2]
 
-                            data_Number = str(FORMAT_metadata_dd[key]['Number'])
-                            data_Type = str(FORMAT_metadata_dd[key]['Type'])
-                            this_sample_data_value = this_sample_data[key]
+                            data_Number = str(FORMAT_metadata_dd[sample_rule_key]['Number'])
+                            data_Type = str(FORMAT_metadata_dd[sample_rule_key]['Type'])
+                            this_sample_data_value = this_sample_data[sample_rule_key]
 
                             if data_Number == 'A' and allele == this_REF:  # cannot be applied; move on to next rule
                                 continue  # next rule; this Number cannot be applied to REF
@@ -1201,7 +1242,7 @@ def main() -> None:
                                         (operator == '>' and not op.gt(this_sample_data_value, value)):
                                     # print('==> failsample <==\n')
                                     decision_list.append('failsample')
-                                    this_FILTER_new_list.append(f'{key}')
+                                    this_FILTER_new_list.append(f'{sample_rule_key}')
 
                                     # # DETERMINE data types for values
                                     # # Ex/ '37' > '5' is *False*, so make sure we're using correct type
@@ -1657,6 +1698,20 @@ def main() -> None:
 
         # FINISH PROCESSING VCF file
         this_out_fh.close()
+
+        # VERIFY NEW VCF file is RECOGNIZABLE to pyvcf module
+        try:
+            this_out_vcf_Reader = vcf.Reader(filename=this_out_file)  # opens without error if exists, even if not VCF
+        except AttributeError:
+            sys.exit(f'\n### ERROR: new VCF_file="{this_out_file}" not readable by pyvcf. VCF file wrong format?\n')
+
+        try:
+            next(this_out_vcf_Reader)
+            # first_rec = next(this_out_vcf_Reader)
+            # print(f'first_rec.INFO={first_rec.INFO}')
+        except ValueError:
+            sys.exit(f'\n### ERROR: records in new VCF_file="{this_out_file}" not readable by pyvcf. '
+                     'VCF file wrong format?\n')
 
         # Print passing variants for this VCF
         print()
