@@ -66,11 +66,15 @@ Details: The script applies a dynamic (site-by-site) filter using the binomial
             -failMaxAF = allele frequency (whether REF or ALT) fails max_AF
             -failINFO: one or more of the user-provided INFO_rules fails
             -failsample: one or more of the user-provided sample_rules fails
-            -failFP = allele fails FP_cutoff
+            -failp = allele fails p_cutoff
         -pass = allele passes all criteria
 
 TODO:
     -whether INFO or INDIVIDUAL SAMPLES examined
+
+EXAMPLES:
+    $ VCFgenie.py --error_rate=0.0001 --VCF_files=example.vcf
+    $ VCFgenie.py --error_rate=0.0001 --p_cutoff=0.000001 --AC_key=FAO --AC_key_new=FAO --AF_key=AF --AF_key_new=AF --DP_key=FDP --overwrite_INFO --VCF_files=example.vcf
 
 Returns:
     1) summary statistics about the variants that were processed (STDOUT)
@@ -89,7 +93,7 @@ from scipy.stats import binom
 from typing import Any, Dict, List, NamedTuple, Optional, TextIO
 
 usage = """# -----------------------------------------------------------------------------
-VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control false-positive count
+VCFgenie.py - Dynamically filter within-sample (pooled sequencing) variants to control false positive calls
 # -----------------------------------------------------------------------------
 For DOCUMENTATION, run:
     $ VCFgenie.py --help
@@ -98,31 +102,37 @@ For DOCUMENTATION, run:
 
 # -----------------------------------------------------------------------------
 EXAMPLE:
-    $ VCFgenie.py --seq_len=7857 --error_per_site=0.01103 --num_samples=1 --FP_cutoff=0.05 --VCF_files example.vcf
+    $ VCFgenie.py --error_rate=0.0001 --VCF_files=example.vcf
 # -----------------------------------------------------------------------------
 """
 
 
 class Args(NamedTuple):
     """ Command-line arguments """
+    # REQUIRED
     VCF_files: List[str]
-    error_per_site: float
-    seq_len: int
-    num_samples: int
-    FP_cutoff: float
-    out_dir: str  # OPTIONAL
-    AC_key: str  # OPTIONAL
-    AC_key_new: str  # OPTIONAL
-    AF_key: str  # OPTIONAL
-    AF_key_new: str  # OPTIONAL
-    DP_key: str  # OPTIONAL
-    min_AC: float  # OPTIONAL
-    min_AF: float  # OPTIONAL
-    max_AF: float  # OPTIONAL
-    min_DP: float  # OPTIONAL
-    INFO_rules: str  # OPTIONAL
-    sample_rules: str  # OPTIONAL
-    overwrite_INFO: bool  # OPTIONAL
+    error_rate: float
+    # seq_len: int
+    # num_samples: int
+    # FP_cutoff: float
+
+    # OPTIONAL
+    out_dir: str
+    p_cutoff: float
+    AC_key: str
+    AC_key_new: str
+    AF_key: str
+    AF_key_new: str
+    DP_key: str
+    PVR_key_new: str
+    PVA_key_new: str
+    min_AC: float
+    min_AF: float
+    max_AF: float
+    min_DP: float
+    INFO_rules: str
+    sample_rules: str
+    overwrite_INFO: bool
 
 
 # -----------------------------------------------------------------------------
@@ -130,7 +140,7 @@ def get_args() -> Args:
     """ Get command-line arguments """
 
     parser = argparse.ArgumentParser(
-        description='Dynamically filter within-sample (pooled sequencing) variants to control false-positive count | HELP: VCFgenie.py --help',
+        description='Dynamically filter variants to control false-positive count | EXAMPLE: VCFgenie.py --error_rate=0.0001 --VCF_files=example.vcf',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Rename "optional" arguments
@@ -141,41 +151,43 @@ def get_args() -> Args:
     parser.add_argument('-i',
                         '--VCF_files',
                         metavar='FILE',
-                        help='input variant call format (VCF) file(s) [REQUIRED]',
+                        help='input, one or more variant call format (VCF) files [REQUIRED]',
                         required=True,  # 'required' won't work for positionals
                         nargs='+',
                         # type=argparse.FileType('r'))  # was 'rt' but want .gz as option?
                         type=str)
 
     parser.add_argument('-e',
-                        '--error_per_site',
+                        '--error_rate',
                         metavar='float',
-                        help='error rate per site expected as the result of sample preparation, library preparation, '
-                             'and sequencing (currently assumes all nucleotide errors equally probable) [REQUIRED]',
+                        help='sequencing error rate for single nucleotide substitutions per base sequenced [REQUIRED]',
                         required=True,
                         type=float)
 
-    parser.add_argument('-L',
-                        '--seq_len',
-                        metavar='int',
-                        help='length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides '
-                             '[REQUIRED]',
-                        required=True,
-                        type=int)
+    # help='error rate per site expected as the result of sample preparation, library preparation, '
+    # 'and sequencing (currently assumes all nucleotide errors equally probable) [REQUIRED]',
 
-    parser.add_argument('-n',
-                        '--num_samples',
-                        metavar='int',
-                        help='number of samples (VCF files) in full analysis [REQUIRED]',
-                        required=True,
-                        type=int)
+    # parser.add_argument('-L',
+    #                     '--seq_len',
+    #                     metavar='int',
+    #                     help='length of reference sequence (e.g., contig, chromosome, or genome) in nucleotides '
+    #                          '[REQUIRED]',
+    #                     required=True,
+    #                     type=int)
 
-    parser.add_argument('-f',
-                        '--FP_cutoff',
-                        metavar='float',
-                        help='analysis-wide false-positive (FP) count cutoff [REQUIRED]',
-                        required=True,
-                        type=float)
+    # parser.add_argument('-n',
+    #                     '--num_samples',
+    #                     metavar='int',
+    #                     help='number of samples (VCF files) in full analysis [REQUIRED]',
+    #                     required=True,
+    #                     type=int)
+
+    # parser.add_argument('-f',
+    #                     '--FP_cutoff',
+    #                     metavar='float',
+    #                     help='analysis-wide false-positive (FP) count cutoff [REQUIRED]',
+    #                     required=True,
+    #                     type=float)
 
     # -------------------------------------------------------------------------
     # OPTIONAL - WITH DEFAULT
@@ -186,6 +198,14 @@ def get_args() -> Args:
                         required=False,
                         type=str,
                         default='VCFgenie_output')
+
+    parser.add_argument('-p',
+                        '--p_cutoff',
+                        metavar='float',
+                        help='p-value cutoff [OPTIONAL]',
+                        required=False,
+                        type=float,
+                        default=1.)
 
     parser.add_argument('-c',
                         '--AC_key',
@@ -226,6 +246,22 @@ def get_args() -> Args:
                         required=False,
                         type=str,
                         default='DP')  # 'FDP' for Ion Torrent
+
+    parser.add_argument('-v',
+                        '--PVR_key_new',
+                        metavar='str',
+                        help='INFO and FORMAT key to use for p-value for REF allele [OPTIONAL]',
+                        required=False,
+                        type=str,
+                        default='PVR')
+
+    parser.add_argument('-V',
+                        '--PVA_key_new',
+                        metavar='str',
+                        help='INFO and FORMAT key to use for p-values for ALT allele(s) [OPTIONAL]',
+                        required=False,
+                        type=str,
+                        default='PVA')
 
     parser.add_argument('-t',
                         '--min_AC',
@@ -283,7 +319,7 @@ def get_args() -> Args:
 
     parser.add_argument('-O',
                         '--overwrite_INFO',
-                        help='For any data keys matching between INFO and FORMAT, OVERWRITE INFO data with <sample> '
+                        help='for any data keys matching between INFO and FORMAT, OVERWRITE INFO data with <sample> '
                              'data [OPTIONAL]',
                         action='store_true')
 
@@ -337,17 +373,17 @@ def get_args() -> Args:
                          '### VCF may not contain any records (rows;  FAOvariants).\n')
 
     # Appropriate numeric values
-    if args.error_per_site < 0 or args.error_per_site >= 1 or not args.error_per_site:
-        parser.error(f'\n### ERROR: error_per_site "{args.error_per_site}" must be >= 0 and < 1')
+    if args.error_rate < 0 or args.error_rate >= 1 or not args.error_rate:
+        parser.error(f'\n### ERROR: error_rate "{args.error_rate}" must be >= 0 and < 1')
 
-    if args.seq_len <= 0 or not args.seq_len:
-        parser.error(f'\n### ERROR: seq_len "{args.seq_len}" must be > 0 nucleotides')
+    # if args.seq_len <= 0 or not args.seq_len:
+    #     parser.error(f'\n### ERROR: seq_len "{args.seq_len}" must be > 0 nucleotides')
+    #
+    # if args.num_samples <= 0 or not args.num_samples:
+    #     parser.error(f'\n### ERROR: num_samples "{args.num_samples}" must be > 0')
 
-    if args.num_samples <= 0 or not args.num_samples:
-        parser.error(f'\n### ERROR: num_samples "{args.num_samples}" must be > 0')
-
-    if args.FP_cutoff <= 0 or not args.FP_cutoff:
-        parser.error(f'\n### ERROR: FP_cutoff "{args.FP_cutoff}" must be > 0')
+    # if args.FP_cutoff <= 0 or not args.FP_cutoff:
+    #     parser.error(f'\n### ERROR: FP_cutoff "{args.FP_cutoff}" must be > 0')
 
     # OPTIONAL
     if os.path.isdir(args.out_dir):
@@ -355,6 +391,9 @@ def get_args() -> Args:
         parser.error(f'\n### ERROR: out_dir="{args.out_dir}" already exists')
     else:
         os.makedirs(args.out_dir)
+
+    if args.p_cutoff < 0 or args.p_cutoff > 1 or not args.p_cutoff:
+        parser.error(f'\n### ERROR: p_cutoff "{args.p_cutoff}" must be between 0 and 1 (inclusive)')
 
     # if args.AC_key == args.AC_key_new:
     #     # parser.error(f'AC_key="{args.AC_key}" may not match AC_key_new="{args.AC_key_new}"')
@@ -379,16 +418,19 @@ def get_args() -> Args:
     # INFO_rules and sample_rules will be validated first thing in main() when they're regexed
 
     return Args(VCF_files=args.VCF_files,
-                error_per_site=args.error_per_site,
-                seq_len=args.seq_len,
-                num_samples=args.num_samples,
-                FP_cutoff=args.FP_cutoff,
+                error_rate=args.error_rate,
+                # seq_len=args.seq_len,
+                # num_samples=args.num_samples,
+                # FP_cutoff=args.FP_cutoff,
                 out_dir=args.out_dir,
+                p_cutoff=args.p_cutoff,
                 AC_key=args.AC_key,
                 AC_key_new=args.AC_key_new,
                 AF_key=args.AF_key,
                 AF_key_new=args.AF_key_new,
                 DP_key=args.DP_key,
+                PVR_key_new=args.PVR_key_new,
+                PVA_key_new=args.PVA_key_new,
                 min_AC=args.min_AC,
                 min_AF=args.min_AF,
                 max_AF=args.max_AF,
@@ -406,16 +448,19 @@ def main() -> None:
     # GATHER arguments
     args = get_args()
     VCF_files = args.VCF_files
-    error_per_site = args.error_per_site
-    seq_len = args.seq_len
-    num_samples = args.num_samples
-    FP_cutoff = args.FP_cutoff
+    error_rate = args.error_rate
+    # seq_len = args.seq_len
+    # num_samples = args.num_samples
+    # FP_cutoff = args.FP_cutoff
     out_dir = args.out_dir  # optional
+    p_cutoff = args.p_cutoff  # optional
     AC_key = args.AC_key  # optional
     AC_key_new = args.AC_key_new  # optional
     AF_key = args.AF_key  # optional
     AF_key_new = args.AF_key_new  # optional
     DP_key = args.DP_key  # optional
+    PVR_key_new = args.PVR_key_new  # optional
+    PVA_key_new = args.PVA_key_new  # optional
     min_AC = args.min_AC  # optional
     min_AF = args.min_AF  # optional
     max_AF = args.max_AF  # optional
@@ -432,16 +477,19 @@ def main() -> None:
     # print('LOG')
     print(f'LOG:command="{" ".join(sys.argv)}"')
     print(f'LOG:cwd="{os.getcwd()}"')
-    print(f'LOG:error_per_site="{error_per_site}"')
-    print(f'LOG:seq_len="{seq_len}"')
-    print(f'LOG:num_samples="{num_samples}"')
-    print(f'LOG:FP_cutoff="{FP_cutoff}"')
+    print(f'LOG:error_rate="{error_rate}"')
+    # print(f'LOG:seq_len="{seq_len}"')
+    # print(f'LOG:num_samples="{num_samples}"')
+    # print(f'LOG:FP_cutoff="{FP_cutoff}"')
     print(f'LOG:out_dir="{out_dir}"')
+    print(f'LOG:p_cutoff="{p_cutoff}"')
     print(f'LOG:AC_key="{AC_key}"')
     print(f'LOG:AC_key_new="{AC_key_new}"')
     print(f'LOG:AF_key="{AF_key}"')
     print(f'LOG:AF_key_new="{AF_key_new}"')
     print(f'LOG:DP_key="{DP_key}"')
+    print(f'LOG:PVR_key_new="{PVR_key_new}"')
+    print(f'LOG:PVA_key_new="{PVA_key_new}"')
     print(f'LOG:min_AC="{min_AC}"')
     print(f'LOG:min_AF="{min_AF}"')
     print(f'LOG:max_AF="{max_AF}"')
@@ -458,6 +506,8 @@ def main() -> None:
 
     if AF_key == AF_key_new:
         print(f'### WARNING: AF_key_new="{AF_key_new}" already exists as AF_key="{AF_key_new}" and will be OVERWRITTEN')
+
+    # TODO: check that ANY of the keys being used aren't already present? Perhaps overkill
 
     # -------------------------------------------------------------------------
     # REGEX & TUPLES
@@ -504,9 +554,9 @@ def main() -> None:
     operator_choices = ('==', '!=', '<', '<=', '>=', '>')
     decision_choices = ('pass',
                         'fail', 'failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample',
-                        'failFP',
-                        'fixedREF', 'fixedALT',)
-    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failFP')
+                        'failp',
+                        'fixedREF', 'fixedALT',)  # 'failFP',
+    decision_choices_FAIL = ('failZeroAC', 'failDP', 'failAC', 'failMinAF', 'failMaxAF', 'failINFO', 'failsample', 'failp')  # 'failFP'
 
     # -------------------------------------------------------------------------
     # PARSE INFO_rules and sample_rules into LISTS of 3-TUPLES using re_rule
@@ -604,7 +654,8 @@ def main() -> None:
         'failMaxAF': 'allele frequency (REF or ALT) fails --max_AF',
         'failINFO': 'fails one or more of the user-provided --INFO_rules',
         'failsample': 'fails one or more of the user-provided --sample_rules',
-        'failFP': 'fails --FP_cutoff',
+        # 'failFP': 'fails --FP_cutoff',
+        'failp': 'fails --p_cutoff',
         # 'failToFixedALT': 'failing minor allele matched REF; converted to fixed ALT allele',
         'pass': 'allele passes all criteria'
     }
@@ -757,7 +808,7 @@ def main() -> None:
         # ---------------------------------------------------------------------
         # Prepare additional metadata entries (##), to print for each file directly above the header (#)
         # new_FILTER_lines = f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' \
-        #                    f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' \
+        #                    f'##FILTER=<ID=error_rate,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_rate}">\n' \
         #                    f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' \
         #                    f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false discovery rate (FP) cutoff: {FP_cutoff}">\n' \
         #                    f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
@@ -765,23 +816,37 @@ def main() -> None:
         #                    f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">'
 
         # new_INFO_lines = f'##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="Indicates whether a site is multiallelic (more than one ALT allele)\">'
-        new_metadata_lines = f'##FILTER=<ID=error_per_site,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_per_site}">\n' \
-                             f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' \
-                             f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' \
-                             f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false-positive (FP) count cutoff: {FP_cutoff}">\n' \
-                             f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
-                             f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' \
-                             f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' \
-                             f'##FILTER=<ID=max_AF,Description="Major allele frequency cutoff (min allowed): {max_AF}">\n'
+        # new_metadata_lines = f'##FILTER=<ID=error_rate,Description="Sequencing error rate per site (assumes all nucleotides equally probable): {error_rate}">\n' \
+        #                      f'##FILTER=<ID=seq_len,Description="Reference sequence genome length (nucleotides): {seq_len}">\n' \
+        #                      f'##FILTER=<ID=num_samples,Description="Number of samples (VCF files) in full analysis: {num_samples}">\n' \
+        #                      f'##FILTER=<ID=FP_cutoff,Description="Analysis-wide false-positive (FP) count cutoff: {FP_cutoff}">\n' \
+        #                      f'##FILTER=<ID=min_DP,Description="Read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
+        #                      f'##FILTER=<ID=min_AC,Description="Allele count cutoff (min reads allowed to support allele): {min_AC}">\n' \
+        #                      f'##FILTER=<ID=min_AF,Description="Minor allele frequency cutoff (min allowed): {min_AF}">\n' \
+        #                      f'##FILTER=<ID=max_AF,Description="Major allele frequency cutoff (min allowed): {max_AF}">\n'
+
+        new_metadata_lines = f'##FILTER=<ID=error_rate,Description="VCFgenie, sequencing error rate for single nucleotide substitutions per base sequenced: {error_rate}">\n' \
+                             f'##FILTER=<ID=p_cutoff,Description="VCFgenie, p-value cutoff: {p_cutoff}">\n' \
+                             f'##FILTER=<ID=min_DP,Description="VCFgenie, read depth (coverage) cutoff (min allowed): {min_DP}">\n' \
+                             f'##FILTER=<ID=min_AC,Description="VCFgenie, allele count cutoff (min reads allowed to support allele): {min_AC}">\n' \
+                             f'##FILTER=<ID=min_AF,Description="VCFgenie, minor allele frequency cutoff (min allowed): {min_AF}">\n' \
+                             f'##FILTER=<ID=max_AF,Description="VCFgenie, major allele frequency cutoff (min allowed): {max_AF}">\n'
 
         for new_FILTER_line in new_FILTER_lines:
             new_metadata_lines += f'{new_FILTER_line}\n'
 
-        new_metadata_lines += '##INFO=<ID=DECISION,Number=.,Type=String,Description="The decision(s) made to yield STATUS of PASS and/or FAIL">\n' \
-                              '##INFO=<ID=STATUS,Number=A,Type=String,Description="Whether the ALT allele(s) is a PASS or FAIL">\n' \
-                              '##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="The site is multiallelic (more than one ALT allele)">\n' \
-                              '##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="The REF allele failed to meet the criteria">'
-        # Others may be written if encountered below for AC_key_new, AF_key_new, or DP_key_new
+        new_metadata_lines += '##INFO=<ID=DECISION,Number=.,Type=String,Description="VCFgenie, decision(s) made to yield STATUS of PASS and/or FAIL">\n' \
+                              '##INFO=<ID=STATUS,Number=A,Type=String,Description="VCFgenie, whether the ALT allele(s) is PASS or FAIL">\n' \
+                              '##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="VCFgenie, site is multiallelic (more than one ALT allele)">\n' \
+                              '##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="VCFgenie, REF allele failed to meet the criteria">\n' \
+                              f'##FORMAT=<ID={PVR_key_new},Number=1,Type=Float,Description="VCFgenie, p-value for REF allele">\n' \
+                              f'##FORMAT=<ID={PVA_key_new},Number=A,Type=Float,Description="VCFgenie, p-value for ALT allele(s)">'
+        # Others may be written if encountered just below for AC_key_new, AF_key_new, or DP_key_new
+
+        # TODO: here, add p_value
+        # Questions:
+        # 1) does p-value get written to BOTH format AND INFO?
+        # 2) should it be REF,ALTs or separate for REF and then ALTs?
 
         # Keep track of numbers of records/samples/pass
         this_record_n = 0
@@ -815,9 +880,9 @@ def main() -> None:
         FORMAT_metadata_dd: Dict[str, dict] = {}
 
         seen_AC_key_new_FLAG = False
-        new_AC_FORMAT_line = f'##FORMAT=<ID={AC_key_new},Number=A,Type=Integer,Description="ALT allele count after FP and other processing">'
+        new_AC_FORMAT_line = f'##FORMAT=<ID={AC_key_new},Number=A,Type=Integer,Description="VCFgenie, ALT allele count after processing">'
         seen_AF_key_new_FLAG = False
-        new_AF_FORMAT_line = f'##FORMAT=<ID={AF_key_new},Number=A,Type=Float,Description="ALT allele frequency after FP and other processing">'
+        new_AF_FORMAT_line = f'##FORMAT=<ID={AF_key_new},Number=A,Type=Float,Description="VCFgenie, ALT allele frequency after processing">'
 
         for line in this_VCF_fh:
             # chomp newline
@@ -1111,16 +1176,25 @@ def main() -> None:
                 # -------------------------------------------------------------
                 # LOOP AND TEST ALL ALLELES, includes REF (1) and ALT (1 or more)
                 allele_decision_dl: Dict[str, List[str]] = defaultdict(list)
+                p_value_dict: Dict[str, float] = defaultdict(float)
+
                 for allele, AC in allele_AC_dict.items():
                     this_ALLELE_n += 1
                     total_ALLELE_n += 1
+
+                    # Retrieve SNV error rate
+                    error_rate_SNV = error_rate / 3  # TODO: equal just for now, but later allow 4x4 matrices
 
                     # AF for reuse in this loop
                     this_AF = AC / this_DP  # NOTE: this is BEFORE correction, which is what we want
 
                     # Calculate analysis-wide FP for this allele count and coverage
-                    FP_implied = (1 - binom.cdf(AC - 1, this_DP, error_per_site / 3)) * seq_len * num_samples
+                    # FP_implied = (1 - binom.cdf(AC - 1, this_DP, error_rate_SNV)) * seq_len * num_samples
                     # x - 1 because subtracting everything BEFORE this value (cumulative distribution)
+
+                    # Calculate the variant p-value for this allele count and coverage: P(X>=AC) | ~Binom(DP,error)
+                    p_value = 1 - binom.cdf(AC - 1, this_DP, error_rate_SNV)
+                    p_value_dict[allele] = p_value
 
                     # ---------------------------------------------------------
                     # CATEGORIZE
@@ -1267,10 +1341,15 @@ def main() -> None:
                             else:  # data_Number is not '1' or 'A'
                                 print(f'### WARNING: no method for implementing rule={rule}, which has Number={data_Number}; will not be implemented')
 
-                    # failFP: allele FAILS because insufficient reads support it (FP)
-                    if FP_implied > FP_cutoff:
-                        decision_list.append('failFP')
-                        this_FILTER_new_list.append('FP')
+                    # # failFP: allele FAILS because insufficient reads support it (FP)
+                    # if FP_implied > FP_cutoff:
+                    #     decision_list.append('failFP')
+                    #     this_FILTER_new_list.append('FP')
+
+                    # failp: allele FAILS the p-value cutoff supplied as --p_cutoff
+                    if p_value >= p_cutoff:
+                        decision_list.append('failp')
+                        this_FILTER_new_list.append('p')
 
                     # OTHERWISE PASS
                     if len(decision_list) == 0:  # PASS
@@ -1282,7 +1361,7 @@ def main() -> None:
                     #     sys.exit(f'\n### ERROR decision="None" at '
                     #              f'file="{this_VCF_file}";seq="{this_CHROM}";pos="{this_POS}";REF="{this_REF}";ALT_list="{this_ALT_list}"')
 
-                    # DIE is nonsensical decision reached
+                    # DIE if nonsensical decision reached
                     if len(decision_list) > 1 and 'pass' in decision_list:
                         sys.exit('\n### ERROR: more than one decision made, but PASS among them')
 
@@ -1426,9 +1505,9 @@ def main() -> None:
                                          f';AF="{round(this_AF, 5)}"' \
                                          f';AC="{AC}"' \
                                          f';DP="{this_DP}"' \
-                                         f';FP="{round(FP_implied, 5)}"' \
+                                         f';p="{p_value}"' \
                                          f';DECISION="{decision}"' \
-                                         ';STATUS="FAIL"'  # f';allele_FAILED="{REForALT}"'
+                                         ';STATUS="FAIL"'  # f';allele_FAILED="{REForALT}"'  # f';FP="{round(FP_implied, 5)}"' \
                             print(out_string)
 
                     # if round(this_AF, 3) == 0.414:
@@ -1575,8 +1654,9 @@ def main() -> None:
                 status_list: List[str] = []  # 'pass' included
                 new_AC_list: List[int] = []
                 new_AF_list: List[float] = []
+                PVA_list: List[float] = []
 
-                for i, this_ALT in enumerate(this_ALT_list):  # ordered
+                for i, this_ALT in enumerate(this_ALT_list):  # ordered TODO <== do I mean the ORIGINAL order? I think so
                     # this_variant_n += 1
                     # total_ALT_n += 1
 
@@ -1603,6 +1683,7 @@ def main() -> None:
                     status_list.append(status)
                     new_AC_list.append(allele_AC_dict[this_ALT])
                     new_AF_list.append(round(this_AF_corr, 7))
+                    PVA_list.append(p_value_dict[this_ALT])
 
                 # -------------------------------------------------------------
                 # REPLACE or ADD DATA for SAMPLE
@@ -1612,10 +1693,16 @@ def main() -> None:
                     this_FORMAT_list.append(AC_key_new)
                 if AF_key_new not in this_FORMAT_list:
                     this_FORMAT_list.append(AF_key_new)
+                if PVR_key_new not in this_FORMAT_list:
+                    this_FORMAT_list.append(PVR_key_new)
+                if PVA_key_new not in this_FORMAT_list:
+                    this_FORMAT_list.append(PVA_key_new)
 
                 # REPLACE data
                 this_sample_data[AC_key_new] = ','.join(map(str, new_AC_list))  # will usually just be one (no comma)
                 this_sample_data[AF_key_new] = ','.join(map(str, new_AF_list))  # will usually just be one (no comma)
+                this_sample_data[PVR_key_new] = p_value_dict[this_REF]
+                this_sample_data[PVA_key_new] = ','.join(map(str, PVA_list))  # will usually just be one (no comma)
 
                 # -------------------------------------------------------------
                 # WRITE THE MODIFIED RECORD
@@ -1674,6 +1761,10 @@ def main() -> None:
 
                 if this_ALT_n > 1:
                     new_INFO_list.append('MULTIALLELIC')
+
+                # Add p-values
+                new_INFO_list.append(f'{PVR_key_new}={p_value_dict[this_REF]}')
+                new_INFO_list.append(f'{PVA_key_new}={",".join(map(str, PVA_list))}')
 
                 # append INFO to the line
                 new_INFO_record = ';'.join(new_INFO_list)
