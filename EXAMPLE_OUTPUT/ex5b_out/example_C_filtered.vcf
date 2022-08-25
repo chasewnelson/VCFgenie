@@ -80,6 +80,8 @@
 ##INFO=<ID=STATUS,Number=A,Type=String,Description="VCFgenie, whether the ALT allele(s) is PASS or FAIL">
 ##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="VCFgenie, site is multiallelic (more than one ALT allele)">
 ##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="VCFgenie, REF allele failed to meet the criteria">
+##INFO=<ID=PVR,Number=1,Type=Float,Description="VCFgenie, p-value for REF allele">
+##INFO=<ID=PVA,Number=A,Type=Float,Description="VCFgenie, p-value for ALT allele(s)">
 ##FORMAT=<ID=PVR,Number=1,Type=Float,Description="VCFgenie, p-value for REF allele">
 ##FORMAT=<ID=PVA,Number=A,Type=Float,Description="VCFgenie, p-value for ALT allele(s)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	PAP189115_D4

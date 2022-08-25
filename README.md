@@ -171,7 +171,7 @@ Call VCFgenie using the following options:
 
 ## <a name="examples"></a>EXAMPLES
 
-### EXAMPLE 1: Simplest Possible Run
+### EXAMPLE 1: Minimal Run (Simplest Possible)
 
 At a minimum, two options are required: `--error_rate` and `--VCF_files` (see the [introduction example](#vcfgenie)).
 

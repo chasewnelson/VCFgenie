@@ -839,6 +839,8 @@ def main() -> None:
                               '##INFO=<ID=STATUS,Number=A,Type=String,Description="VCFgenie, whether the ALT allele(s) is PASS or FAIL">\n' \
                               '##INFO=<ID=MULTIALLELIC,Number=0,Type=Flag,Description="VCFgenie, site is multiallelic (more than one ALT allele)">\n' \
                               '##INFO=<ID=REF_FAIL,Number=0,Type=Flag,Description="VCFgenie, REF allele failed to meet the criteria">\n' \
+                              f'##INFO=<ID={PVR_key_new},Number=1,Type=Float,Description="VCFgenie, p-value for REF allele">\n'\
+                              f'##INFO=<ID={PVA_key_new},Number=A,Type=Float,Description="VCFgenie, p-value for ALT allele(s)">\n' \
                               f'##FORMAT=<ID={PVR_key_new},Number=1,Type=Float,Description="VCFgenie, p-value for REF allele">\n' \
                               f'##FORMAT=<ID={PVA_key_new},Number=A,Type=Float,Description="VCFgenie, p-value for ALT allele(s)">'
         # Others may be written if encountered just below for AC_key_new, AF_key_new, or DP_key_new
